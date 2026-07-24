@@ -6,7 +6,7 @@
     <title>Canteen System - Sign Up</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+<body class="bg-gray-50 flex items-center justify-center min-h-screen py-10">
 
     <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div class="flex justify-center mb-6">
@@ -14,19 +14,56 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
             </svg>
         </div>
-        
+
         <h2 class="text-2xl font-bold text-center text-gray-800 mb-8">Create an Account</h2>
 
-        <form id="register-form" class="space-y-5">
+        <form id="register-form" class="space-y-5" novalidate>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="first-name" class="block text-sm font-medium text-gray-700">First Name</label>
+                    <input type="text" id="first-name" required
+                        class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                        placeholder="John">
+                </div>
+                <div>
+                    <label for="last-name" class="block text-sm font-medium text-gray-700">Last Name</label>
+                    <input type="text" id="last-name" required
+                        class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                        placeholder="Doe">
+                </div>
+            </div>
+
+            <div>
+                <label for="middle-name" class="block text-sm font-medium text-gray-700">
+                    Middle Name <span class="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input type="text" id="middle-name"
+                    class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                    placeholder="Kiptoo">
+            </div>
+
+            <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                <input type="tel" id="phone" required
+                    class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                    placeholder="07XX XXX XXX or +254 7XX XXX XXX">
+                <p id="phone-error" class="text-xs text-red-500 mt-1 hidden">Enter a valid Kenyan phone number (e.g. 0712345678 or +254712345678).</p>
+            </div>
+
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-                <input type="email" id="email" required class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition" placeholder="you@neighborhood.com">
+                <input type="email" id="email" required
+                    class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                    placeholder="you@neighborhood.com">
             </div>
 
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
                 <div class="relative mt-1">
-                    <input type="password" id="password" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition pr-10" placeholder="Min. 6 characters">
+                    <input type="password" id="password" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition pr-10"
+                        placeholder="Create a strong password">
                     <button type="button" id="toggle-password" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-orange-500 focus:outline-none">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -34,12 +71,42 @@
                         </svg>
                     </button>
                 </div>
+
+                <!-- Strength meter -->
+                <div class="mt-2 flex gap-1" id="strength-bars">
+                    <div class="h-1.5 flex-1 rounded-full bg-gray-200" data-bar="1"></div>
+                    <div class="h-1.5 flex-1 rounded-full bg-gray-200" data-bar="2"></div>
+                    <div class="h-1.5 flex-1 rounded-full bg-gray-200" data-bar="3"></div>
+                    <div class="h-1.5 flex-1 rounded-full bg-gray-200" data-bar="4"></div>
+                </div>
+                <p id="strength-label" class="text-xs mt-1 text-gray-400">Password strength</p>
+
+                <!-- Requirement checklist -->
+                <ul class="mt-2 space-y-1 text-xs">
+                    <li id="req-length" class="flex items-center gap-1.5 text-gray-400">
+                        <span class="req-icon">○</span> At least 8 characters
+                    </li>
+                    <li id="req-upper" class="flex items-center gap-1.5 text-gray-400">
+                        <span class="req-icon">○</span> One uppercase letter
+                    </li>
+                    <li id="req-lower" class="flex items-center gap-1.5 text-gray-400">
+                        <span class="req-icon">○</span> One lowercase letter
+                    </li>
+                    <li id="req-number" class="flex items-center gap-1.5 text-gray-400">
+                        <span class="req-icon">○</span> One number
+                    </li>
+                    <li id="req-special" class="flex items-center gap-1.5 text-gray-400">
+                        <span class="req-icon">○</span> One special character (!@#$%^&* etc.)
+                    </li>
+                </ul>
             </div>
 
             <div>
                 <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
                 <div class="relative mt-1">
-                    <input type="password" id="confirm-password" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition pr-10" placeholder="Re-enter password">
+                    <input type="password" id="confirm-password" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition pr-10"
+                        placeholder="Re-enter password">
                     <button type="button" id="toggle-confirm-password" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-orange-500 focus:outline-none">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -63,11 +130,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        // Import Firestore modules
+        import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Your Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCpwR1fxkEMTkpcVIQtkzcu91Ce-VJ2pYs",
             authDomain: "mark-kenya.firebaseapp.com",
@@ -77,10 +142,8 @@
             appId: "1:205623271753:web:8b3e8f46bfc0784f577a98"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        // Initialize Firestore
         const db = getFirestore(app);
 
         // DOM Elements
@@ -88,37 +151,129 @@
         const errorMessage = document.getElementById('error-message');
         const submitBtn = document.getElementById('submit-btn');
 
-        // Password Visibility Toggles
-        const togglePasswordBtn = document.getElementById('toggle-password');
+        const firstNameInput = document.getElementById('first-name');
+        const middleNameInput = document.getElementById('middle-name');
+        const lastNameInput = document.getElementById('last-name');
+        const phoneInput = document.getElementById('phone');
+        const phoneError = document.getElementById('phone-error');
+        const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
-        const toggleConfirmPasswordBtn = document.getElementById('toggle-confirm-password');
         const confirmPasswordInput = document.getElementById('confirm-password');
 
+        // Password visibility toggles
+        document.getElementById('toggle-password').addEventListener('click', () => toggleVisibility(passwordInput));
+        document.getElementById('toggle-confirm-password').addEventListener('click', () => toggleVisibility(confirmPasswordInput));
         function toggleVisibility(inputElement) {
             const type = inputElement.getAttribute('type') === 'password' ? 'text' : 'password';
             inputElement.setAttribute('type', type);
         }
 
-        togglePasswordBtn.addEventListener('click', () => toggleVisibility(passwordInput));
-        toggleConfirmPasswordBtn.addEventListener('click', () => toggleVisibility(confirmPasswordInput));
+        // ---------- Phone validation (Kenyan numbers) ----------
+        function normalizePhone(raw) {
+            const cleaned = raw.replace(/[\s-]/g, '');
+            const kenyanPattern = /^(?:\+254|254|0)(7|1)\d{8}$/;
+            if (!kenyanPattern.test(cleaned)) return null;
+            // Normalize to +254 format
+            if (cleaned.startsWith('0')) return '+254' + cleaned.slice(1);
+            if (cleaned.startsWith('254')) return '+' + cleaned;
+            return cleaned;
+        }
 
-        // Form Submission
+        phoneInput.addEventListener('blur', () => {
+            const normalized = normalizePhone(phoneInput.value);
+            phoneError.classList.toggle('hidden', !!normalized || phoneInput.value === '');
+        });
+
+        // ---------- Password strength ----------
+        const requirements = {
+            length: { test: (p) => p.length >= 8, el: document.getElementById('req-length') },
+            upper: { test: (p) => /[A-Z]/.test(p), el: document.getElementById('req-upper') },
+            lower: { test: (p) => /[a-z]/.test(p), el: document.getElementById('req-lower') },
+            number: { test: (p) => /[0-9]/.test(p), el: document.getElementById('req-number') },
+            special: { test: (p) => /[^A-Za-z0-9]/.test(p), el: document.getElementById('req-special') },
+        };
+
+        const strengthBars = document.querySelectorAll('#strength-bars [data-bar]');
+        const strengthLabel = document.getElementById('strength-label');
+        const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
+        const strengthText = ['Weak', 'Fair', 'Good', 'Strong'];
+
+        function evaluatePassword(password) {
+            let passedCount = 0;
+            for (const key in requirements) {
+                const passed = requirements[key].test(password);
+                const el = requirements[key].el;
+                const icon = el.querySelector('.req-icon');
+                if (passed) {
+                    passedCount++;
+                    el.classList.remove('text-gray-400', 'text-red-500');
+                    el.classList.add('text-green-600');
+                    icon.textContent = '✓';
+                } else {
+                    el.classList.remove('text-green-600');
+                    el.classList.add('text-gray-400');
+                    icon.textContent = '○';
+                }
+            }
+
+            // Strength score: 0-4 bars, based on requirements met (length counts extra)
+            let score = 0;
+            if (requirements.length.test(password)) score++;
+            if (requirements.upper.test(password) && requirements.lower.test(password)) score++;
+            if (requirements.number.test(password)) score++;
+            if (requirements.special.test(password) && password.length >= 10) score++;
+            score = Math.min(score, 4);
+
+            strengthBars.forEach((bar, i) => {
+                bar.className = 'h-1.5 flex-1 rounded-full ' + (i < score ? strengthColors[Math.max(score - 1, 0)] : 'bg-gray-200');
+            });
+            strengthLabel.textContent = password ? strengthText[Math.max(score - 1, 0)] : 'Password strength';
+            strengthLabel.className = 'text-xs mt-1 ' + (password ? 'font-medium' : 'text-gray-400');
+
+            return passedCount === 5; // all requirements met
+        }
+
+        passwordInput.addEventListener('input', () => evaluatePassword(passwordInput.value));
+
+        // ---------- Form submission ----------
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const email = document.getElementById('email').value;
+            errorMessage.classList.add('hidden');
+
+            const firstName = firstNameInput.value.trim();
+            const middleName = middleNameInput.value.trim();
+            const lastName = lastNameInput.value.trim();
+            const rawPhone = phoneInput.value.trim();
+            const email = emailInput.value.trim();
             const password = passwordInput.value;
             const confirmPassword = confirmPasswordInput.value;
-            
-            // Client-side Validation
-            if (password !== confirmPassword) {
-                errorMessage.textContent = "Passwords do not match.";
+
+            // Name validation
+            if (!firstName || !lastName) {
+                errorMessage.textContent = "Please enter your first and last name.";
                 errorMessage.classList.remove('hidden');
                 return;
             }
 
-            if (password.length < 6) {
-                errorMessage.textContent = "Password must be at least 6 characters.";
+            // Phone validation
+            const normalizedPhone = normalizePhone(rawPhone);
+            if (!normalizedPhone) {
+                errorMessage.textContent = "Please enter a valid Kenyan phone number.";
+                errorMessage.classList.remove('hidden');
+                phoneError.classList.remove('hidden');
+                return;
+            }
+
+            // Password strength validation
+            if (!evaluatePassword(password)) {
+                errorMessage.textContent = "Password does not meet all security requirements.";
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // Match validation
+            if (password !== confirmPassword) {
+                errorMessage.textContent = "Passwords do not match.";
                 errorMessage.classList.remove('hidden');
                 return;
             }
@@ -126,40 +281,48 @@
             // Visual feedback
             submitBtn.textContent = 'Creating Account...';
             submitBtn.disabled = true;
-            errorMessage.classList.add('hidden');
 
             try {
-                // 1. Create User in Firebase Auth
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
-                
-                // 2. Store additional user data in Firestore
-                // This creates a document in the "users" collection with the ID matching the Auth UID
+
+                const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
+
+                // Set display name on the Auth profile too
+                await updateProfile(user, { displayName: fullName });
+
+                // Store additional user data in Firestore
                 await setDoc(doc(db, "users", user.uid), {
+                    firstName,
+                    middleName: middleName || null,
+                    lastName,
+                    fullName,
+                    phone: normalizedPhone,
                     email: user.email,
-                    role: "customer", // Setting a default role for the dashboard routing later
+                    role: "customer",
                     createdAt: serverTimestamp(),
                     status: "active"
                 });
 
                 console.log("User registered & saved to Firestore:", user.uid);
-                
-                // Redirect to login
-                window.location.href = "login.html"; 
+
+                window.location.href = "login.html";
 
             } catch (error) {
-                // Handle Errors
                 console.error(error.code, error.message);
-                
+
                 if (error.code === 'auth/email-already-in-use') {
                     errorMessage.textContent = "This email is already registered.";
+                } else if (error.code === 'auth/weak-password') {
+                    errorMessage.textContent = "Password is too weak. Please choose a stronger one.";
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage.textContent = "Please enter a valid email address.";
                 } else {
                     errorMessage.textContent = error.message;
                 }
-                
+
                 errorMessage.classList.remove('hidden');
-                
-                // Reset button
+
                 submitBtn.textContent = 'Sign Up';
                 submitBtn.disabled = false;
             }
