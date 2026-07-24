@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canteen OS — System Presentation</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14110F;
+    --ink-soft:#1D1913;
+    --paper:#F5EFE1;
+    --paper-dim:#E7DCC3;
+    --ember:#FF6A1A;
+    --ember-dark:#D9490A;
+    --green:#2FA84F;
+    --blue:#2F6FED;
+    --indigo:#5B4FE8;
+    --amber:#E8A93C;
+    --muted:#A79E8E;
+    --line: rgba(245,239,225,0.14);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+  }
+  .font-display{font-family:'Space Grotesk',sans-serif;}
+  .font-mono{font-family:'JetBrains Mono',monospace;}
+
+  ::-webkit-scrollbar{width:9px;}
+  ::-webkit-scrollbar-track{background:var(--ink);}
+  ::-webkit-scrollbar-thumb{background:var(--ember-dark);border-radius:6px;}
+
+  :focus-visible{outline:2px solid var(--ember);outline-offset:3px;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+
+  /* ---------- ticket card with torn-stub notches ---------- */
+  .ticket{
+    position:relative;
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:10px;
+  }
+  .ticket::before,.ticket::after{
+    content:'';
+    position:absolute;
+    top:-11px;
+    width:22px;height:22px;
+    background:var(--ink);
+    border-radius:50%;
+    z-index:2;
+  }
+  .ticket::before{left:-11px;}
+  .ticket::after{right:-11px;}
+  .ticket-perf{
+    border-top:2px dashed rgba(20,17,15,0.22);
+  }
+
+  /* faint receipt texture */
+  .paper-noise{
+    background-image: repeating-linear-gradient(0deg, rgba(20,17,15,0.025) 0px, rgba(20,17,15,0.025) 1px, transparent 1px, transparent 3px);
+  }
+
+  /* ---------- reveal on scroll ---------- */
+  .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);}
+  .reveal.in{opacity:1;transform:translateY(0);}
+
+  /* ---------- status rail nav ---------- */
+  .rail-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:rgba(245,239,225,0.25);
+    transition:all .3s ease;
+    display:block;
+  }
+  .rail-dot.active{
+    background:var(--ember);
+    box-shadow:0 0 0 4px rgba(255,106,26,0.22);
+    transform:scale(1.25);
+  }
+
+  /* ---------- stamp entrance ---------- */
+  @keyframes stampIn{
+    0%{opacity:0;transform:scale(1.4) rotate(-6deg);}
+    60%{opacity:1;transform:scale(0.96) rotate(1deg);}
+    100%{opacity:1;transform:scale(1) rotate(-1.5deg);}
+  }
+  .stamp{animation:stampIn .9s cubic-bezier(.2,.9,.3,1.1) both;}
+
+  @keyframes blink{50%{opacity:.25;}}
+  .pulse-dot{animation:blink 1.6s ease-in-out infinite;}
+
+  .status-pending{background:var(--amber);}
+  .status-approved{background:var(--blue);}
+  .status-dispatched{background:var(--indigo);}
+  .status-delivered{background:var(--green);}
+
+  .chip{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px; letter-spacing:.04em;
+    padding:3px 9px; border-radius:999px; font-weight:600;
+  }
+
+  .divider-zig{
+    height:14px;
+    background-image: linear-gradient(135deg, var(--ink) 25%, transparent 25%), linear-gradient(225deg, var(--ink) 25%, transparent 25%);
+    background-size:14px 14px;
+    background-position: 0 0;
+  }
+
+  .connector{
+    width:2px;height:34px;
+    background-image: linear-gradient(var(--muted), var(--muted));
+    background-size: 2px 8px;
+    background-repeat: repeat-y;
+    opacity:.5;
+    margin:0 auto;
+  }
+
+  .glow-ember{box-shadow:0 0 0 1px rgba(255,106,26,0.35), 0 18px 40px -18px rgba(255,106,26,0.35);}
+
+  .qa-toggle[open] .qa-caret{transform:rotate(90deg);}
+  .qa-caret{transition:transform .25s ease;}
+</style>
+</head>
+<body class="antialiased">
+
+<!-- ============================================================ -->
+<!-- STATUS RAIL NAV -->
+<!-- ============================================================ -->
+<nav id="rail" class="fixed right-4 md:right-6 top-1/2 -translate-y-1/2 z-50 hidden sm:flex flex-col items-center gap-4">
+  <div class="flex flex-col gap-4">
+    <a href="#hero" class="rail-link group relative" data-target="hero"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">ORDER</span></a>
+    <a href="#brief" class="rail-link group relative" data-target="brief"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">BRIEF</span></a>
+    <a href="#map" class="rail-link group relative" data-target="map"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">SYSTEM</span></a>
+    <a href="#t01" class="rail-link group relative" data-target="t01"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">01 · JUNE</span></a>
+    <a href="#t02" class="rail-link group relative" data-target="t02"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">02 · ESTHER</span></a>
+    <a href="#t03" class="rail-link group relative" data-target="t03"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">03 · ABBY</span></a>
+    <a href="#t04" class="rail-link group relative" data-target="t04"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">04 · GEORGINIA</span></a>
+    <a href="#t05" class="rail-link group relative" data-target="t05"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">05 · MARK</span></a>
+    <a href="#stack" class="rail-link group relative" data-target="stack"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">STACK</span></a>
+    <a href="#lifecycle" class="rail-link group relative" data-target="lifecycle"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">FLOW</span></a>
+    <a href="#close" class="rail-link group relative" data-target="close"><span class="rail-dot"></span>
+      <span class="absolute right-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-mono text-[10px] text-paper/0 group-hover:text-paper/70 transition">CLOSE</span></a>
+  </div>
+</nav>
+
+<!-- ============================================================ -->
+<!-- HERO -->
+<!-- ============================================================ -->
+<section id="hero" class="relative min-h-screen flex items-center px-6 md:px-16 py-28 overflow-hidden">
+  <div class="absolute inset-0 pointer-events-none opacity-[0.06]" style="background-image:radial-gradient(circle at 1px 1px, var(--paper) 1px, transparent 1px);background-size:26px 26px;"></div>
+  <div class="absolute -right-40 -top-40 w-[560px] h-[560px] rounded-full opacity-20 blur-3xl" style="background:radial-gradient(circle, var(--ember), transparent 70%);"></div>
+
+  <div class="relative max-w-5xl mx-auto w-full">
+    <div class="flex items-center gap-3 mb-8 reveal">
+      <span class="w-2 h-2 rounded-full status-pending pulse-dot"></span>
+      <span class="font-mono text-xs tracking-[0.25em] text-paper/60">GROUP PROJECT · FINAL PRESENTATION · KEN &nbsp;·&nbsp; MARK-KENYA PROJECT</span>
+    </div>
+
+    <div class="ticket stamp glow-ember paper-noise px-8 md:px-14 py-10 md:py-14 -rotate-1">
+      <div class="flex flex-wrap justify-between items-start gap-4 ticket-perf pb-5 mb-6 font-mono text-[11px] tracking-wide text-ink/60">
+        <span>ORDER № 2026‑CS‑004</span>
+        <span>TABLE: GROUP OF FIVE</span>
+        <span>SERVED BY: MARK KIGEN YEGO (LEAD)</span>
+      </div>
+
+      <h1 class="font-display font-700 leading-[0.95] text-5xl md:text-7xl tracking-tight" style="font-weight:700;">
+        CANTEEN&nbsp;OS
+      </h1>
+      <p class="mt-5 max-w-xl text-base md:text-lg text-ink/70 leading-relaxed">
+        A real‑time canteen ordering and operations platform — four connected
+        web apps, one shared Firebase backend, and a payment layer built the
+        way production systems are built: secret keys never touch the browser.
+      </p>
+
+      <div class="mt-8 flex flex-wrap gap-2">
+        <span class="chip bg-ink text-paper">Firebase Auth</span>
+        <span class="chip bg-ink text-paper">Cloud Firestore</span>
+        <span class="chip bg-ink text-paper">Cloud Functions</span>
+        <span class="chip bg-ink text-paper">Paystack</span>
+        <span class="chip" style="background:var(--ember);color:var(--paper);">4 role‑based apps</span>
+      </div>
+    </div>
+
+    <div class="mt-10 grid grid-cols-2 md:grid-cols-5 gap-3 reveal">
+      <div class="rounded-lg border border-paper/15 px-4 py-3">
+        <p class="font-mono text-[10px] text-paper/45 tracking-widest">LEAD</p>
+        <p class="font-display text-sm mt-1">Mark Kigen Yego</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-4 py-3">
+        <p class="font-mono text-[10px] text-paper/45 tracking-widest">MEMBER</p>
+        <p class="font-display text-sm mt-1">June Wema Bobo</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-4 py-3">
+        <p class="font-mono text-[10px] text-paper/45 tracking-widest">MEMBER</p>
+        <p class="font-display text-sm mt-1">Esther Indosio Nga'nyi</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-4 py-3">
+        <p class="font-mono text-[10px] text-paper/45 tracking-widest">MEMBER</p>
+        <p class="font-display text-sm mt-1">Abby Girl</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-4 py-3">
+        <p class="font-mono text-[10px] text-paper/45 tracking-widest">MEMBER</p>
+        <p class="font-display text-sm mt-1">Georginia Kioko</p>
+      </div>
+    </div>
+
+    <p class="mt-8 font-mono text-[11px] text-paper/40 reveal">↓ scroll — every presenter has their own ticket below</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- THE BRIEF -->
+<!-- ============================================================ -->
+<section id="brief" class="px-6 md:px-16 py-24 border-t border-paper/10">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-3 mb-10 reveal">
+      <span class="font-mono text-xs text-ember tracking-[0.2em]">00 / THE BRIEF</span>
+      <span class="h-px flex-1 bg-paper/15"></span>
+    </div>
+    <div class="grid md:grid-cols-2 gap-10">
+      <div class="reveal">
+        <h2 class="font-display text-3xl md:text-4xl font-semibold mb-4">The queue was the problem.</h2>
+        <p class="text-paper/70 leading-relaxed">
+          A campus canteen at peak hour runs on paper tickets, shouted order
+          numbers, and a cashbox that has to be reconciled by hand at closing.
+          Nobody — not the customer, not the kitchen, not the person running
+          the till — can see the same picture of what's happening at the same
+          time.
+        </p>
+      </div>
+      <div class="reveal">
+        <h2 class="font-display text-3xl md:text-4xl font-semibold mb-4">So we built one shared source of truth.</h2>
+        <p class="text-paper/70 leading-relaxed">
+          Canteen OS is four purpose‑built screens — customer, admin, waiter,
+          and account access — all reading and writing the same live
+          database. An order placed on a phone in the queue is visible in the
+          kitchen a moment later, and visible to the customer again the
+          moment it's approved. No refreshing, no shouting.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SYSTEM MAP -->
+<!-- ============================================================ -->
+<section id="map" class="px-6 md:px-16 py-24 border-t border-paper/10 bg-ink-soft" style="background:var(--ink-soft);">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-3 mb-4 reveal">
+      <span class="font-mono text-xs text-ember tracking-[0.2em]">SYSTEM MAP</span>
+      <span class="h-px flex-1 bg-paper/15"></span>
+    </div>
+    <h2 class="font-display text-2xl md:text-3xl font-semibold mb-12 reveal">One Firebase project. Four front doors.</h2>
+
+    <div class="reveal">
+      <!-- top row: 4 apps -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="ticket px-4 py-4 text-center">
+          <p class="font-mono text-[10px] text-ink/45">FILES</p>
+          <p class="font-display font-semibold text-sm mt-1">login.html<br>register.html</p>
+          <p class="text-[11px] text-ink/55 mt-2">Account access</p>
+        </div>
+        <div class="ticket px-4 py-4 text-center">
+          <p class="font-mono text-[10px] text-ink/45">FILE</p>
+          <p class="font-display font-semibold text-sm mt-1">dashboard.html</p>
+          <p class="text-[11px] text-ink/55 mt-2">Customer ordering</p>
+        </div>
+        <div class="ticket px-4 py-4 text-center">
+          <p class="font-mono text-[10px] text-ink/45">FILE</p>
+          <p class="font-display font-semibold text-sm mt-1">admin.html</p>
+          <p class="text-[11px] text-ink/55 mt-2">Command centre</p>
+        </div>
+        <div class="ticket px-4 py-4 text-center">
+          <p class="font-mono text-[10px] text-ink/45">FILE</p>
+          <p class="font-display font-semibold text-sm mt-1">waiter.html</p>
+          <p class="text-[11px] text-ink/55 mt-2">Delivery floor</p>
+        </div>
+      </div>
+
+      <div class="flex justify-center"><div class="connector"></div></div>
+
+      <!-- hub -->
+      <div class="flex justify-center">
+        <div class="ticket px-8 py-5 text-center glow-ember">
+          <p class="font-mono text-[10px] text-ink/45 tracking-widest">SHARED BACKEND</p>
+          <p class="font-display font-bold text-lg mt-1">Cloud Firestore</p>
+          <p class="text-[11px] text-ink/55 mt-1">orders · menu · waiters · deliveryPoints · loyaltyAdjustments · users</p>
+          <p class="text-[11px] text-ink/70 mt-2 font-mono">onSnapshot() — every screen updates live, together</p>
+        </div>
+      </div>
+
+      <div class="flex justify-center"><div class="connector"></div></div>
+
+      <!-- bottom row: auth + payments -->
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="ticket px-5 py-4">
+          <p class="font-mono text-[10px] text-ink/45 tracking-widest">IDENTITY</p>
+          <p class="font-display font-semibold text-sm mt-1">Firebase Authentication</p>
+          <p class="text-[11px] text-ink/55 mt-2">Every account gets a matching <span class="font-mono">users/{'{uid}'}</span> document with a role — customer today, extensible to staff roles.</p>
+        </div>
+        <div class="ticket px-5 py-4">
+          <p class="font-mono text-[10px] text-ink/45 tracking-widest">MONEY</p>
+          <p class="font-display font-semibold text-sm mt-1">Paystack → Cloud Function → Firestore</p>
+          <p class="text-[11px] text-ink/55 mt-2">Browser collects the payment. <span class="font-mono">index.js</span> — server‑side only — confirms it really happened before it's trusted.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- TEAM TICKETS INTRO -->
+<!-- ============================================================ -->
+<section class="px-6 md:px-16 pt-24 pb-6">
+  <div class="max-w-5xl mx-auto reveal">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="font-mono text-xs text-ember tracking-[0.2em]">THE LINE‑UP</span>
+      <span class="h-px flex-1 bg-paper/15"></span>
+    </div>
+    <h2 class="font-display text-2xl md:text-3xl font-semibold">Five presenters, five tickets, zero overlap.</h2>
+    <p class="text-paper/60 mt-3 max-w-2xl">Each ticket below is one team member's section: the file(s) they own, exactly what to click during the live demo, the concepts to explain out loud, and the question a lecturer is most likely to throw at them — with the answer already loaded.</p>
+  </div>
+</section>
+
+<!-- TICKET 01 — JUNE -->
+<section id="t01" class="px-6 md:px-16 py-10">
+  <div class="max-w-5xl mx-auto reveal">
+    <div class="ticket paper-noise px-7 md:px-10 py-9">
+      <div class="flex flex-wrap items-center justify-between gap-3 ticket-perf pb-5 mb-6">
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-3xl font-bold text-ink/15">01</span>
+          <div>
+            <p class="font-display font-bold text-xl">June Wema Bobo</p>
+            <p class="font-mono text-[11px] text-ink/50">FRONT DOOR — ACCOUNTS &amp; ACCESS</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <span class="chip" style="background:var(--amber);color:var(--ink);">login.html</span>
+          <span class="chip" style="background:var(--amber);color:var(--ink);">register.html</span>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">LIVE DEMO — DO THIS ON STAGE</p>
+          <ol class="space-y-2 text-sm text-ink/75 list-decimal list-inside">
+            <li>Register a brand‑new account on <span class="font-mono">register.html</span> and show the password‑match / minimum‑length checks firing before Firebase is even called.</li>
+            <li>Show the new account appear in Firestore under <span class="font-mono">users</span> with <span class="font-mono">role: "customer"</span> and a server timestamp.</li>
+            <li>Log out, then log back in on <span class="font-mono">login.html</span>; toggle <em>Remember me</em> and explain what changes.</li>
+            <li>Type a wrong password on purpose — show the friendly error instead of a raw Firebase error code.</li>
+          </ol>
+        </div>
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">EXPLAIN THIS</p>
+          <ul class="space-y-2 text-sm text-ink/75 list-disc list-inside">
+            <li><span class="font-semibold">Firebase Authentication</span> owns the password — the app never sees or stores it, only Firebase's SDK does (<span class="font-mono">createUserWithEmailAndPassword</span> / <span class="font-mono">signInWithEmailAndPassword</span>).</li>
+            <li>Sign‑up is two writes, not one: an <span class="font-mono">Auth</span> account for identity, plus a <span class="font-mono">Firestore</span> document for everything else (role, status, join date) — because Auth can't store custom fields.</li>
+            <li><span class="font-mono">setPersistence()</span> chooses between <span class="font-mono">browserLocalPersistence</span> (stays signed in) and <span class="font-mono">browserSessionPersistence</span> (forgets on tab close) — that's what the "Remember me" box actually controls.</li>
+            <li>Errors are caught and mapped to plain English (<span class="font-mono">auth/invalid-credential</span>, <span class="font-mono">auth/email-already-in-use</span>) instead of exposing Firebase's internal codes to the user.</li>
+          </ul>
+        </div>
+      </div>
+
+      <details class="qa-toggle mt-7 group">
+        <summary class="cursor-pointer flex items-center gap-2 font-mono text-[11px] text-ink/60 tracking-widest select-none">
+          <svg class="qa-caret w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>
+          LIKELY QUESTION FROM THE PANEL
+        </summary>
+        <div class="mt-3 pl-5 border-l-2 border-ink/10 text-sm text-ink/70 leading-relaxed">
+          <p class="font-semibold text-ink/85">"What stops a customer from editing the page to make themselves an admin?"</p>
+          <p class="mt-1">The <span class="font-mono">role</span> field lives in Firestore, not in the browser, and it's only ever set once — at sign‑up, to <span class="font-mono">"customer"</span> — by code the user can't rewrite from dev tools. Promoting someone to a staff role is a deliberate action taken from the admin panel, not a value the client can hand itself. The next hardening step we'd add is Firestore Security Rules that reject any write to <span class="font-mono">role</span> that doesn't come from an already‑privileged account.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- TICKET 02 — ESTHER -->
+<section id="t02" class="px-6 md:px-16 py-10">
+  <div class="max-w-5xl mx-auto reveal">
+    <div class="ticket paper-noise px-7 md:px-10 py-9">
+      <div class="flex flex-wrap items-center justify-between gap-3 ticket-perf pb-5 mb-6">
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-3xl font-bold text-ink/15">02</span>
+          <div>
+            <p class="font-display font-bold text-xl">Esther Indosio Nga'nyi</p>
+            <p class="font-mono text-[11px] text-ink/50">THE COUNTER — ORDERING &amp; PAYMENT</p>
+          </div>
+        </div>
+        <span class="chip" style="background:var(--blue);color:var(--paper);">dashboard.html</span>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">LIVE DEMO — DO THIS ON STAGE</p>
+          <ol class="space-y-2 text-sm text-ink/75 list-decimal list-inside">
+            <li>Search and filter the menu by category, add two or three items to the cart, and open the cart panel.</li>
+            <li>Pick a delivery point on the map, choose <em>Pay Now with Paystack</em>, and complete a test payment.</li>
+            <li>Immediately switch to the Admin ticket's screen (or a second tab) so the audience sees the same order appear there in real time, with no refresh.</li>
+            <li>Once it's approved by admin, show the status pill on the customer side flip from <em>Pending Approval</em> to <em>Preparing Your Food</em> live.</li>
+            <li>Show a past delivered order and leave a star rating / review.</li>
+          </ol>
+        </div>
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">EXPLAIN THIS</p>
+          <ul class="space-y-2 text-sm text-ink/75 list-disc list-inside">
+            <li>The order tracker isn't polling — it's a live <span class="font-mono">onSnapshot()</span> listener on that customer's own orders, so Firestore pushes the update the instant admin changes it.</li>
+            <li>Paystack's popup is a self‑contained widget: it collects card/M‑Pesa details itself, so this page never touches raw payment details.</li>
+            <li>On success, <span class="font-mono">handlePaystackSuccess()</span> tries to confirm the charge server‑side (see Mark's ticket), then <span class="font-mono">finalizeOrder()</span> writes the order to Firestore either way — payment confirmation and order creation are two separate, deliberate steps.</li>
+            <li>Reviews are only unlocked once an order's status is <span class="font-mono">Delivered</span>, so ratings reflect real completed orders.</li>
+          </ul>
+        </div>
+      </div>
+
+      <details class="qa-toggle mt-7 group">
+        <summary class="cursor-pointer flex items-center gap-2 font-mono text-[11px] text-ink/60 tracking-widest select-none">
+          <svg class="qa-caret w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>
+          LIKELY QUESTION FROM THE PANEL
+        </summary>
+        <div class="mt-3 pl-5 border-l-2 border-ink/10 text-sm text-ink/70 leading-relaxed">
+          <p class="font-semibold text-ink/85">"What if Paystack says the payment succeeded but the connection drops before it's verified?"</p>
+          <p class="mt-1">The order is still created — we never want a customer who genuinely paid to lose their order — but it's saved with the status <span class="font-mono">"Paid (Unverified – check admin panel)"</span> instead of a clean <span class="font-mono">"Paid"</span>. That's a deliberate fallback: the system stays usable even if the verification function is briefly unreachable, and admin can reconcile the flagged ones by hand. It's a small example of designing for failure instead of assuming the happy path.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- TICKET 03 — ABBY -->
+<section id="t03" class="px-6 md:px-16 py-10">
+  <div class="max-w-5xl mx-auto reveal">
+    <div class="ticket paper-noise px-7 md:px-10 py-9">
+      <div class="flex flex-wrap items-center justify-between gap-3 ticket-perf pb-5 mb-6">
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-3xl font-bold text-ink/15">03</span>
+          <div>
+            <p class="font-display font-bold text-xl">Abby Girl</p>
+            <p class="font-mono text-[11px] text-ink/50">BACK OF HOUSE — ADMIN COMMAND CENTRE</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <span class="chip" style="background:var(--indigo);color:var(--paper);">admin.html</span>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">LIVE DEMO — DO THIS ON STAGE</p>
+          <ol class="space-y-2 text-sm text-ink/75 list-decimal list-inside">
+            <li>Approve Esther's incoming order, then dispatch it — narrate the status pulsing on the "Pending" card first.</li>
+            <li>Open the menu/inventory tab and add or edit a menu item live; show it appear instantly on the customer's menu.</li>
+            <li>Open the waiters tab, show auto‑assign balancing load across waiters, then add a delivery point on the map.</li>
+            <li>Open the loyalty tab and show a customer's tier update from completed orders.</li>
+            <li>Jump to Analytics and export the day's report as a PDF with one click.</li>
+          </ol>
+        </div>
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">EXPLAIN THIS</p>
+          <ul class="space-y-2 text-sm text-ink/75 list-disc list-inside">
+            <li>Every panel here — orders, menu, waiters, delivery points, loyalty, analytics — is a live <span class="font-mono">onSnapshot()</span> view onto the same Firestore collections everyone else's screen also uses.</li>
+            <li>Auto‑assign picks the waiter with the lowest current order load, not a fixed rotation — it's a small load‑balancing algorithm, not a coin flip.</li>
+            <li>Every action here (menu edit, waiter added, delivery point placed) is a normal Firestore write — there's no separate "admin API"; permission comes from which screen you're trusted to open.</li>
+            <li>PDF export (<span class="font-mono">jsPDF</span> + <span class="font-mono">autotable</span>) turns live Firestore data into an offline report for record‑keeping — a deliberately separate, exportable copy of the truth.</li>
+          </ul>
+        </div>
+      </div>
+
+      <details class="qa-toggle mt-7 group">
+        <summary class="cursor-pointer flex items-center gap-2 font-mono text-[11px] text-ink/60 tracking-widest select-none">
+          <svg class="qa-caret w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>
+          LIKELY QUESTION FROM THE PANEL
+        </summary>
+        <div class="mt-3 pl-5 border-l-2 border-ink/10 text-sm text-ink/70 leading-relaxed">
+          <p class="font-semibold text-ink/85">"What stops an admin action from silently breaking what the customer or waiter sees?"</p>
+          <p class="mt-1">Nothing here writes to a private "admin copy" of the data — approving an order updates the exact same <span class="font-mono">orders</span> document the customer's tracker and the waiter's queue are already listening to. There's one shape of truth per order; admin just has the widest set of screens allowed to change it.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- TICKET 04 — GEORGINIA -->
+<section id="t04" class="px-6 md:px-16 py-10">
+  <div class="max-w-5xl mx-auto reveal">
+    <div class="ticket paper-noise px-7 md:px-10 py-9">
+      <div class="flex flex-wrap items-center justify-between gap-3 ticket-perf pb-5 mb-6">
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-3xl font-bold text-ink/15">04</span>
+          <div>
+            <p class="font-display font-bold text-xl">Georginia Kioko</p>
+            <p class="font-mono text-[11px] text-ink/50">THE DELIVERY FLOOR — WAITER OPS &amp; ENTRY POINT</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <span class="chip" style="background:var(--green);color:var(--ink);">waiter.html</span>
+          <span class="chip" style="background:var(--paper-dim);color:var(--ink);">index.html</span>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">LIVE DEMO — DO THIS ON STAGE</p>
+          <ol class="space-y-2 text-sm text-ink/75 list-decimal list-inside">
+            <li>Open <span class="font-mono">index.html</span> first and let the audience watch it redirect straight into the app — a one‑line explanation of why a routing entry point exists at all.</li>
+            <li>Open <span class="font-mono">waiter.html</span>, pick a waiter identity from the list, and enter the floor view.</li>
+            <li>Show that only Approved and Dispatched orders appear here — nothing Pending, nothing from the menu or analytics side.</li>
+            <li>Mark an order Dispatched, then Delivered, and point back to Esther's screen updating live in response.</li>
+            <li>Show <span class="font-mono">timeAgo()</span> ticking up on an order card to demonstrate how long it's been waiting.</li>
+          </ol>
+        </div>
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">EXPLAIN THIS</p>
+          <ul class="space-y-2 text-sm text-ink/75 list-disc list-inside">
+            <li><span class="font-mono">index.html</span> is a deliberate front door: a meta‑refresh into <span class="font-mono">dashboard.html</span>, so the project always has one obvious starting point instead of four scattered files.</li>
+            <li>Waiter identity isn't a login — it's a lightweight picker over the <span class="font-mono">waiters</span> collection, kept simple because the real gatekeeping already happened at <span class="font-mono">login.html</span>.</li>
+            <li>The order query here is scoped with <span class="font-mono">where("status","in",["Approved","Dispatched","Delivered"])</span> — a waiter physically cannot see an order that hasn't been approved yet, by design, not convention.</li>
+            <li>This is the smallest screen in the whole system on purpose: fewer buttons on the floor means fewer chances to tap the wrong one mid‑rush.</li>
+          </ul>
+        </div>
+      </div>
+
+      <details class="qa-toggle mt-7 group">
+        <summary class="cursor-pointer flex items-center gap-2 font-mono text-[11px] text-ink/60 tracking-widest select-none">
+          <svg class="qa-caret w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>
+          LIKELY QUESTION FROM THE PANEL
+        </summary>
+        <div class="mt-3 pl-5 border-l-2 border-ink/10 text-sm text-ink/70 leading-relaxed">
+          <p class="font-semibold text-ink/85">"If picking a waiter identity isn't a real login, what's stopping anyone from opening this page and marking orders as delivered?"</p>
+          <p class="mt-1">For this stage of the build, <span class="font-mono">waiter.html</span> is treated as a trusted, staff‑only device sitting at the delivery point — the same assumption a physical order‑ticket rail makes. The identity picker exists to route orders to the right person, not to gate access. The natural next step, which we'd flag as future work, is folding waiter accounts into Firebase Authentication the same way customers already work, so the picker becomes a real login.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- TICKET 05 — MARK -->
+<section id="t05" class="px-6 md:px-16 py-10">
+  <div class="max-w-5xl mx-auto reveal">
+    <div class="ticket paper-noise px-7 md:px-10 py-9 glow-ember">
+      <div class="flex flex-wrap items-center justify-between gap-3 ticket-perf pb-5 mb-6">
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-3xl font-bold text-ink/15">05</span>
+          <div>
+            <p class="font-display font-bold text-xl">Mark Kigen Yego <span class="font-mono text-[11px] font-normal text-ink/45">— GROUP LEADER</span></p>
+            <p class="font-mono text-[11px] text-ink/50">THE ENGINE ROOM — FIREBASE &amp; BACKEND LOGIC</p>
+          </div>
+        </div>
+        <span class="chip" style="background:var(--ember);color:var(--paper);">index.js</span>
+      </div>
+
+      <p class="text-sm text-ink/70 mb-6 max-w-2xl">This is the ticket that ties every other presenter's section back together — the shared Firebase project underneath all four apps, and the one file none of the other apps are allowed to touch directly: the server‑side payment verifier.</p>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">LIVE WALKTHROUGH — DO THIS ON STAGE</p>
+          <ol class="space-y-2 text-sm text-ink/75 list-decimal list-inside">
+            <li>Open <span class="font-mono">index.js</span> and point out it runs on Firebase Cloud Functions — Google's servers — never in the customer's browser.</li>
+            <li>Point at the same <span class="font-mono">firebaseConfig</span> object appearing in login, register, dashboard and admin — one project, four doors.</li>
+            <li>Trace the payment path out loud: Paystack popup → <span class="font-mono">reference</span> → <span class="font-mono">verifyPaymentServerSide()</span> → this Cloud Function → Paystack's own <span class="font-mono">/transaction/verify</span> endpoint → back to Firestore.</li>
+            <li>Show where the secret key actually lives: <span class="font-mono">defineSecret("PAYSTACK_SECRET_KEY")</span>, pulled from Firebase Secret Manager at run time — never in source, never in git.</li>
+          </ol>
+        </div>
+        <div>
+          <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-2">EXPLAIN THIS</p>
+          <ul class="space-y-2 text-sm text-ink/75 list-disc list-inside">
+            <li>Paystack gives every project two keys: a <span class="font-mono">public</span> key, safe to ship in <span class="font-mono">dashboard.html</span> because the checkout popup is designed to be called from a browser — and a <span class="font-mono">secret</span> key that can charge, refund, and move money, which must never reach a browser.</li>
+            <li>Anyone can open dev tools and read a page's source. If the secret key were in <span class="font-mono">dashboard.html</span>, it would be public the moment the site shipped — that's the entire reason this function exists.</li>
+            <li>The function doesn't just check "did it succeed" — it re‑checks the <span class="font-mono">amount</span> against what the order should cost, which stops someone from tampering with the price in the browser before the popup opens.</li>
+            <li>This is <span class="font-semibold">defense in depth</span>: the app already works without this function deployed (orders just get flagged unverified, see Esther's ticket) — verification is a second, independent layer, not a single point of failure.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mt-8 ticket-perf pt-6">
+        <p class="font-mono text-[11px] text-ink/45 tracking-widest mb-3">THE VERIFICATION PATH, END TO END</p>
+        <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span class="chip bg-ink text-paper">Browser: Paystack popup</span>
+          <span class="text-ink/30">→</span>
+          <span class="chip bg-ink text-paper">reference returned</span>
+          <span class="text-ink/30">→</span>
+          <span class="chip" style="background:var(--ember);color:var(--paper);">Cloud Function (server)</span>
+          <span class="text-ink/30">→</span>
+          <span class="chip bg-ink text-paper">Paystack /verify API</span>
+          <span class="text-ink/30">→</span>
+          <span class="chip bg-ink text-paper">amount re‑checked</span>
+          <span class="text-ink/30">→</span>
+          <span class="chip" style="background:var(--green);color:var(--ink);">Firestore: order marked Paid</span>
+        </div>
+      </div>
+
+      <details class="qa-toggle mt-7 group">
+        <summary class="cursor-pointer flex items-center gap-2 font-mono text-[11px] text-ink/60 tracking-widest select-none">
+          <svg class="qa-caret w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>
+          LIKELY QUESTION FROM THE PANEL
+        </summary>
+        <div class="mt-3 pl-5 border-l-2 border-ink/10 text-sm text-ink/70 leading-relaxed">
+          <p class="font-semibold text-ink/85">"Couldn't a user just fake a browser message saying their payment succeeded, without paying?"</p>
+          <p class="mt-1">Without this function, technically yes — the browser could claim success on its own. That's exactly the gap it closes: the frontend's claim is never trusted by itself. The Cloud Function asks Paystack directly, server‑to‑server, using a key the browser never sees, whether that specific transaction reference really succeeded and for the right amount. Trust moves from "the browser said so" to "Paystack itself confirmed it."</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- STACK -->
+<!-- ============================================================ -->
+<section id="stack" class="px-6 md:px-16 py-24 border-t border-paper/10 bg-ink-soft" style="background:var(--ink-soft);">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-3 mb-10 reveal">
+      <span class="font-mono text-xs text-ember tracking-[0.2em]">THE STACK</span>
+      <span class="h-px flex-1 bg-paper/15"></span>
+    </div>
+    <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-3 reveal">
+      <div class="rounded-lg border border-paper/15 px-5 py-4">
+        <p class="font-display font-semibold text-sm">Firebase Authentication</p>
+        <p class="text-xs text-paper/50 mt-1">Email/password identity for every screen</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-5 py-4">
+        <p class="font-display font-semibold text-sm">Cloud Firestore</p>
+        <p class="text-xs text-paper/50 mt-1">Real‑time database shared by all four apps</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-5 py-4">
+        <p class="font-display font-semibold text-sm">Cloud Functions (Node.js)</p>
+        <p class="text-xs text-paper/50 mt-1">Server‑only payment verification</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-5 py-4">
+        <p class="font-display font-semibold text-sm">Paystack</p>
+        <p class="text-xs text-paper/50 mt-1">Card &amp; M‑Pesa checkout popup</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-5 py-4">
+        <p class="font-display font-semibold text-sm">Tailwind CSS</p>
+        <p class="text-xs text-paper/50 mt-1">Utility‑first styling, all four screens</p>
+      </div>
+      <div class="rounded-lg border border-paper/15 px-5 py-4">
+        <p class="font-display font-semibold text-sm">jsPDF + autotable</p>
+        <p class="text-xs text-paper/50 mt-1">One‑click exportable admin reports</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- ORDER LIFECYCLE (interactive) -->
+<!-- ============================================================ -->
+<section id="lifecycle" class="px-6 md:px-16 py-24 border-t border-paper/10">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-3 mb-4 reveal">
+      <span class="font-mono text-xs text-ember tracking-[0.2em]">ORDER LIFECYCLE</span>
+      <span class="h-px flex-1 bg-paper/15"></span>
+    </div>
+    <h2 class="font-display text-2xl md:text-3xl font-semibold mb-2 reveal">One status field, four screens reacting to it.</h2>
+    <p class="text-paper/60 mb-10 reveal max-w-2xl">This is the exact status rail every order moves through in Firestore. Tap "Advance" to narrate the flow live during Q&amp;A.</p>
+
+    <div class="reveal">
+      <div class="grid grid-cols-4 gap-2 md:gap-4" id="lifecycleRail">
+        <div class="lc-step text-center" data-status="Pending">
+          <div class="lc-dot mx-auto w-10 h-10 rounded-full flex items-center justify-center status-pending"><span class="font-mono text-xs font-bold text-ink">1</span></div>
+          <p class="font-display text-xs md:text-sm mt-3 font-semibold">Pending</p>
+          <p class="text-[11px] text-paper/45 mt-0.5">Order placed</p>
+        </div>
+        <div class="lc-step text-center opacity-40" data-status="Approved">
+          <div class="lc-dot mx-auto w-10 h-10 rounded-full flex items-center justify-center status-approved"><span class="font-mono text-xs font-bold text-ink">2</span></div>
+          <p class="font-display text-xs md:text-sm mt-3 font-semibold">Approved</p>
+          <p class="text-[11px] text-paper/45 mt-0.5">Kitchen preparing</p>
+        </div>
+        <div class="lc-step text-center opacity-40" data-status="Dispatched">
+          <div class="lc-dot mx-auto w-10 h-10 rounded-full flex items-center justify-center status-dispatched"><span class="font-mono text-xs font-bold text-ink">3</span></div>
+          <p class="font-display text-xs md:text-sm mt-3 font-semibold">Dispatched</p>
+          <p class="text-[11px] text-paper/45 mt-0.5">Out for delivery</p>
+        </div>
+        <div class="lc-step text-center opacity-40" data-status="Delivered">
+          <div class="lc-dot mx-auto w-10 h-10 rounded-full flex items-center justify-center status-delivered"><span class="font-mono text-xs font-bold text-ink">4</span></div>
+          <p class="font-display text-xs md:text-sm mt-3 font-semibold">Delivered</p>
+          <p class="text-[11px] text-paper/45 mt-0.5">Reviewable</p>
+        </div>
+      </div>
+      <div class="w-full h-1 bg-paper/10 rounded-full mt-5 overflow-hidden">
+        <div id="lcProgress" class="h-full rounded-full transition-all duration-500" style="width:0%;background:var(--ember);"></div>
+      </div>
+
+      <div class="mt-6 flex flex-wrap items-center gap-3">
+        <button id="lcAdvance" class="font-mono text-xs px-5 py-2.5 rounded-full bg-paper text-ink font-semibold hover:bg-paper/90 transition">Advance status →</button>
+        <button id="lcReset" class="font-mono text-xs px-5 py-2.5 rounded-full border border-paper/25 text-paper/70 hover:border-paper/50 transition">Reset</button>
+        <p id="lcCaption" class="font-mono text-[11px] text-paper/45">admin.html: <span class="text-paper/70">updateStatus(orderId, 'Approved')</span> → every listener re‑renders</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- WHY THIS EARNS TOP MARKS -->
+<!-- ============================================================ -->
+<section class="px-6 md:px-16 py-24 border-t border-paper/10 bg-ink-soft" style="background:var(--ink-soft);">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-3 mb-10 reveal">
+      <span class="font-mono text-xs text-ember tracking-[0.2em]">WHAT WE'D WANT GRADED</span>
+      <span class="h-px flex-1 bg-paper/15"></span>
+    </div>
+    <div class="grid md:grid-cols-2 gap-x-10 gap-y-6 reveal">
+      <div class="flex gap-3">
+        <span class="font-mono text-ember font-bold">→</span>
+        <p class="text-sm text-paper/75"><span class="font-semibold text-paper">Real‑time sync across four roles</span> — not four disconnected pages, one live system.</p>
+      </div>
+      <div class="flex gap-3">
+        <span class="font-mono text-ember font-bold">→</span>
+        <p class="text-sm text-paper/75"><span class="font-semibold text-paper">Production‑style payment security</span> — secret key server‑side only, amount re‑verified.</p>
+      </div>
+      <div class="flex gap-3">
+        <span class="font-mono text-ember font-bold">→</span>
+        <p class="text-sm text-paper/75"><span class="font-semibold text-paper">Designed for failure</span> — the unverified‑payment fallback keeps the demo (and real use) working end to end.</p>
+      </div>
+      <div class="flex gap-3">
+        <span class="font-mono text-ember font-bold">→</span>
+        <p class="text-sm text-paper/75"><span class="font-semibold text-paper">Role separation done properly</span> — waiter, admin and customer each see only what their job needs.</p>
+      </div>
+      <div class="flex gap-3">
+        <span class="font-mono text-ember font-bold">→</span>
+        <p class="text-sm text-paper/75"><span class="font-semibold text-paper">Full operational loop</span> — ordering, kitchen workflow, delivery, loyalty, reviews and PDF reporting.</p>
+      </div>
+      <div class="flex gap-3">
+        <span class="font-mono text-ember font-bold">→</span>
+        <p class="text-sm text-paper/75"><span class="font-semibold text-paper">Every member owns a real, demoable piece</span> — no one presenting slides about someone else's code.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- CLOSE -->
+<!-- ============================================================ -->
+<section id="close" class="relative px-6 md:px-16 py-28 border-t border-paper/10 overflow-hidden">
+  <div class="absolute -left-40 -bottom-40 w-[520px] h-[520px] rounded-full opacity-20 blur-3xl" style="background:radial-gradient(circle, var(--ember), transparent 70%);"></div>
+  <div class="relative max-w-5xl mx-auto text-center reveal">
+    <p class="font-mono text-xs tracking-[0.25em] text-paper/50 mb-4">ORDER № 2026‑CS‑004 — CLOSED OUT</p>
+    <h2 class="font-display text-4xl md:text-6xl font-bold mb-6">Thank you.<br>We're ready for questions.</h2>
+    <p class="text-paper/60 max-w-xl mx-auto mb-10">Four screens, one backend, real payment security — presented by the people who built each piece.</p>
+    <div class="flex flex-wrap justify-center gap-3 font-mono text-xs">
+      <span class="chip bg-paper text-ink">Mark Kigen Yego — Lead</span>
+      <span class="chip border border-paper/25 text-paper/70">June Wema Bobo</span>
+      <span class="chip border border-paper/25 text-paper/70">Esther Indosio Nga'nyi</span>
+      <span class="chip border border-paper/25 text-paper/70">Abby Girl</span>
+      <span class="chip border border-paper/25 text-paper/70">Georginia Kioko</span>
+    </div>
+  </div>
+</section>
+
+<script>
+  // reveal-on-scroll
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+  // rail nav active state
+  const railLinks = document.querySelectorAll('.rail-link');
+  const sections = Array.from(railLinks).map(l=>document.getElementById(l.dataset.target)).filter(Boolean);
+  const railIO = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      const id = entry.target.id;
+      const link = document.querySelector(`.rail-link[data-target="${id}"]`);
+      if(!link) return;
+      if(entry.isIntersecting){
+        railLinks.forEach(l=>l.querySelector('.rail-dot').classList.remove('active'));
+        link.querySelector('.rail-dot').classList.add('active');
+      }
+    });
+  }, { threshold: 0.4, rootMargin: '-10% 0px -40% 0px' });
+  sections.forEach(s=>railIO.observe(s));
+
+  // interactive lifecycle rail
+  const steps = Array.from(document.querySelectorAll('#lifecycleRail .lc-step'));
+  const progress = document.getElementById('lcProgress');
+  const caption = document.getElementById('lcCaption');
+  const advanceBtn = document.getElementById('lcAdvance');
+  const resetBtn = document.getElementById('lcReset');
+  const captions = {
+    0: "dashboard.html: finalizeOrder() writes a new order → admin sees it pulse in",
+    1: "admin.html: updateStatus(orderId, 'Approved') → customer's tracker updates instantly",
+    2: "waiter.html / admin.html: updateStatus(orderId, 'Dispatched') → out for delivery",
+    3: "customer: order marked Delivered → rating & review unlock"
+  };
+  let idx = 0;
+  function render(){
+    steps.forEach((s,i)=>{
+      s.classList.toggle('opacity-40', i>idx);
+      s.classList.toggle('opacity-100', i<=idx);
+    });
+    progress.style.width = (idx/(steps.length-1))*100 + '%';
+    caption.innerHTML = captions[idx];
+    advanceBtn.disabled = idx===steps.length-1;
+    advanceBtn.style.opacity = idx===steps.length-1 ? .5 : 1;
+  }
+  advanceBtn.addEventListener('click', ()=>{ if(idx<steps.length-1){ idx++; render(); } });
+  resetBtn.addEventListener('click', ()=>{ idx=0; render(); });
+  render();
+</script>
+</body>
+</html>
