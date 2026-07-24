@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen OS | Waiter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .status-pulse::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            animation: pulse-ring 2s infinite;
+        }
+        .hover-card { transition: all 0.2s; }
+        .hover-card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1); }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            left: 20px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        .toast {
+            background: white;
+            padding: 14px 18px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border-left: 4px solid;
+            max-width: 400px;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-color: #22c55e; }
+        .toast.error { border-color: #ef4444; }
+        .toast.info { border-color: #3b82f6; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen">
+
+    <!-- SVG Icons -->
+    <svg style="display: none;">
+        <symbol id="icon-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </symbol>
+        <symbol id="icon-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </symbol>
+        <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+        </symbol>
+        <symbol id="icon-map-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+        </symbol>
+        <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </symbol>
+        <symbol id="icon-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </symbol>
+        <symbol id="icon-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+        </symbol>
+    </svg>
+
+    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Waiter Select Screen -->
+    <div id="select-screen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8">
+            <div class="flex justify-center mb-6">
+                <div class="p-3 bg-indigo-100 rounded-2xl shadow-inner">
+                    <svg class="w-10 h-10 text-indigo-500"><use href="#icon-truck"></use></svg>
+                </div>
+            </div>
+            <h2 class="text-2xl font-black text-center text-slate-800 mb-1">Who's serving?</h2>
+            <p class="text-sm text-slate-400 text-center mb-6">Pick your name to see orders assigned to you</p>
+            <div id="waiter-select-list" class="space-y-2 max-h-96 overflow-y-auto">
+                <p class="text-center text-slate-400 py-8">Loading waiters...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Waiter Dashboard -->
+    <div id="main-screen" class="hidden">
+        <header class="bg-white px-4 md:px-8 py-4 flex justify-between items-center border-b border-slate-100 sticky top-0 z-30">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-black" id="waiter-avatar">?</div>
+                <div>
+                    <h2 class="text-sm font-black text-slate-800" id="waiter-name-header">Waiter</h2>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Live</span>
+                    </div>
+                </div>
+            </div>
+            <button onclick="switchWaiter()" class="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-2 text-xs font-bold text-slate-500">
+                <svg class="w-4 h-4"><use href="#icon-logout"></use></svg>
+                Switch
+            </button>
+        </header>
+
+        <main class="p-4 md:p-8 max-w-5xl mx-auto">
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-4 h-4 text-orange-500"><use href="#icon-clock"></use></svg>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">To Pick Up</span>
+                    </div>
+                    <p class="text-2xl font-black text-slate-800" id="stat-pickup">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-4 h-4 text-indigo-500"><use href="#icon-truck"></use></svg>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Delivering</span>
+                    </div>
+                    <p class="text-2xl font-black text-slate-800" id="stat-delivering">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-4 h-4 text-green-500"><use href="#icon-check-circle"></use></svg>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Delivered Today</span>
+                    </div>
+                    <p class="text-2xl font-black text-slate-800" id="stat-delivered-today">0</p>
+                </div>
+            </div>
+
+            <h3 class="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-orange-500"><use href="#icon-clock"></use></svg>
+                Ready for Pickup
+            </h3>
+            <div id="pickup-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <!-- populated -->
+            </div>
+
+            <h3 class="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-500"><use href="#icon-truck"></use></svg>
+                Out for Delivery
+            </h3>
+            <div id="delivering-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- populated -->
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpwR1fxkEMTkpcVIQtkzcu91Ce-VJ2pYs",
+            authDomain: "mark-kenya.firebaseapp.com",
+            projectId: "mark-kenya",
+            storageBucket: "mark-kenya.firebasestorage.app",
+            messagingSenderId: "205623271753",
+            appId: "1:205623271753:web:8b3e8f46bfc0784f577a98"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let allWaiters = [];
+        let currentWaiter = null;
+        let myOrders = [];
+        let orderCount = -1;
+        let ordersUnsubscribe = null;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icons = {
+                success: '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+                error: '<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+                info: '<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+            };
+            toast.innerHTML = `${icons[type]}<span class="text-sm font-semibold text-slate-800">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // Waiters listener (for the select screen)
+        onSnapshot(collection(db, "waiters"), (snap) => {
+            allWaiters = [];
+            snap.forEach(d => allWaiters.push({ id: d.id, ...d.data() }));
+            renderWaiterSelect();
+
+            // If already logged in, refresh header info in case name changed
+            if (currentWaiter) {
+                const updated = allWaiters.find(w => w.id === currentWaiter.id);
+                if (updated) {
+                    currentWaiter = updated;
+                    document.getElementById('waiter-name-header').textContent = updated.name;
+                    document.getElementById('waiter-avatar').textContent = (updated.name || '?')[0].toUpperCase();
+                }
+            }
+        });
+
+        function renderWaiterSelect() {
+            const list = document.getElementById('waiter-select-list');
+            const activeWaiters = allWaiters.filter(w => w.active !== false);
+            if (activeWaiters.length === 0) {
+                list.innerHTML = `<p class="text-center text-slate-400 py-8">No active waiters set up yet. Ask the admin to add waiters.</p>`;
+                return;
+            }
+            list.innerHTML = activeWaiters.map(w => `
+                <button onclick="selectWaiter('${w.id}')" class="w-full p-4 bg-slate-50 hover:bg-indigo-50 rounded-2xl text-left flex items-center gap-3 transition border-2 border-transparent hover:border-indigo-200">
+                    <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-black">${(w.name || '?')[0].toUpperCase()}</div>
+                    <span class="font-bold text-slate-700">${w.name}</span>
+                </button>
+            `).join('');
+        }
+
+        window.selectWaiter = (id) => {
+            const w = allWaiters.find(x => x.id === id);
+            if (!w) return;
+            currentWaiter = w;
+            localStorage.setItem('canteen_waiter_id', id);
+            enterDashboard();
+        };
+
+        window.switchWaiter = () => {
+            localStorage.removeItem('canteen_waiter_id');
+            currentWaiter = null;
+            if (ordersUnsubscribe) { ordersUnsubscribe(); ordersUnsubscribe = null; }
+            document.getElementById('main-screen').classList.add('hidden');
+            document.getElementById('select-screen').classList.remove('hidden');
+        };
+
+        function enterDashboard() {
+            document.getElementById('select-screen').classList.add('hidden');
+            document.getElementById('main-screen').classList.remove('hidden');
+            document.getElementById('waiter-name-header').textContent = currentWaiter.name;
+            document.getElementById('waiter-avatar').textContent = (currentWaiter.name || '?')[0].toUpperCase();
+
+            if (ordersUnsubscribe) ordersUnsubscribe();
+            orderCount = -1;
+            ordersUnsubscribe = onSnapshot(
+                query(collection(db, "orders"), where("status", "in", ["Approved", "Dispatched", "Delivered"])),
+                (snap) => {
+                    const mine = [];
+                    snap.forEach(d => {
+                        const data = d.data();
+                        if (data.assignedWaiter?.id === currentWaiter.id) {
+                            mine.push({ id: d.id, data });
+                        }
+                    });
+                    const activeMine = mine.filter(o => ['Approved', 'Dispatched'].includes(o.data.status));
+                    if (orderCount !== -1 && activeMine.length > (myOrders.filter(o => ['Approved','Dispatched'].includes(o.data.status)).length)) {
+                        document.getElementById('notif-sound').play().catch(() => {});
+                        showToast('New order assigned to you!', 'info');
+                    }
+                    orderCount = activeMine.length;
+                    myOrders = mine;
+                    render();
+                }
+            );
+        }
+
+        function timeAgo(order) {
+            const d = order.data.assignedAt?.toDate ? order.data.assignedAt.toDate() : (order.data.createdAt?.toDate ? order.data.createdAt.toDate() : null);
+            if (!d) return 'Just now';
+            return d.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function orderCard(o, kind) {
+            const d = o.data;
+            const items = Array.isArray(d.itemNames) ? d.itemNames.join(', ') : (d.items || []).map(i => `${i.quantity}x ${i.name}`).join(', ') || 'Order';
+            const table = d.deliveryPoint?.name || 'Campus';
+            return `
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover-card">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 bg-orange-50 rounded-xl flex items-center justify-center relative ${kind === 'pickup' ? 'status-pulse text-orange-500' : 'text-indigo-500'}">
+                                <svg class="w-5 h-5"><use href="#${kind === 'pickup' ? 'icon-clock' : 'icon-truck'}"></use></svg>
+                            </div>
+                            <div>
+                                <p class="font-black text-slate-800 flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-slate-400"><use href="#icon-map-pin"></use></svg>
+                                    ${table}
+                                </p>
+                                <p class="text-xs text-slate-400">Assigned ${timeAgo(o)}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono text-slate-300 bg-slate-50 px-2 py-1 rounded">#${o.id.slice(-6).toUpperCase()}</span>
+                    </div>
+                    <p class="text-sm text-slate-600 mb-3 line-clamp-2">${items}</p>
+                    <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+                        <span class="font-black text-slate-800">KES ${d.totalPrice?.toLocaleString() || 0}</span>
+                        ${kind === 'pickup' ? `
+                            <button onclick="markDispatched('${o.id}')" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition flex items-center gap-1.5">
+                                <svg class="w-4 h-4"><use href="#icon-truck"></use></svg>
+                                Picked Up
+                            </button>
+                        ` : `
+                            <button onclick="markDelivered('${o.id}')" class="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition flex items-center gap-1.5">
+                                <svg class="w-4 h-4"><use href="#icon-check-circle"></use></svg>
+                                Delivered
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const pickup = myOrders.filter(o => o.data.status === 'Approved');
+            const delivering = myOrders.filter(o => o.data.status === 'Dispatched');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const deliveredToday = myOrders.filter(o => {
+                if (o.data.status !== 'Delivered') return false;
+                const d = o.data.updatedAt?.toDate ? o.data.updatedAt.toDate() : null;
+                return d && d >= today;
+            }).length;
+
+            document.getElementById('stat-pickup').textContent = pickup.length;
+            document.getElementById('stat-delivering').textContent = delivering.length;
+            document.getElementById('stat-delivered-today').textContent = deliveredToday;
+
+            document.getElementById('pickup-list').innerHTML = pickup.length
+                ? pickup.map(o => orderCard(o, 'pickup')).join('')
+                : `<div class="col-span-full text-center py-10 bg-white rounded-3xl border border-slate-100 border-dashed"><p class="text-slate-400">Nothing waiting for pickup</p></div>`;
+
+            document.getElementById('delivering-list').innerHTML = delivering.length
+                ? delivering.map(o => orderCard(o, 'delivering')).join('')
+                : `<div class="col-span-full text-center py-10 bg-white rounded-3xl border border-slate-100 border-dashed"><p class="text-slate-400">Nothing out for delivery</p></div>`;
+        }
+
+        window.markDispatched = async (id) => {
+            try {
+                await updateDoc(doc(db, "orders", id), { status: 'Dispatched', updatedAt: serverTimestamp() });
+                showToast('Marked as picked up');
+            } catch (e) {
+                showToast('Error updating order', 'error');
+            }
+        };
+
+        window.markDelivered = async (id) => {
+            try {
+                await updateDoc(doc(db, "orders", id), { status: 'Delivered', updatedAt: serverTimestamp() });
+                showToast('Delivered! Great job');
+            } catch (e) {
+                showToast('Error updating order', 'error');
+            }
+        };
+
+        // Restore last selected waiter
+        const savedId = localStorage.getItem('canteen_waiter_id');
+        if (savedId) {
+            const tryRestore = setInterval(() => {
+                const w = allWaiters.find(x => x.id === savedId);
+                if (w) {
+                    clearInterval(tryRestore);
+                    currentWaiter = w;
+                    enterDashboard();
+                }
+            }, 200);
+            setTimeout(() => clearInterval(tryRestore), 5000);
+        }
+    </script>
+</body>
+</html>

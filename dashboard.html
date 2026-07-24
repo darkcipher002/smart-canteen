@@ -1,0 +1,2308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen - Smart Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .section-fade { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Progress Bar Animation */
+        .progress-fill { transition: width 0.5s ease-in-out; }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        
+        .modal-content {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            z-index: 101;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-content.active { 
+            opacity: 1; 
+            visibility: visible; 
+            transform: translate(-50%, -50%) scale(1); 
+        }
+        
+        /* Toast Notification */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        .toast {
+            background: white;
+            padding: 16px 20px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border-left: 4px solid;
+            pointer-events: auto;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-color: #22c55e; }
+        .toast.info { border-color: #3b82f6; }
+        .toast.warning { border-color: #f97316; }
+        .toast.error { border-color: #ef4444; }
+        
+        /* Live Pulse Animation */
+        .live-pulse {
+            position: relative;
+        }
+        .live-pulse::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: rgba(249, 115, 22, 0.4);
+            animation: livePulse 2s infinite;
+        }
+        @keyframes livePulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0; }
+        }
+        
+        /* Cart Badge */
+        .cart-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #f97316;
+            color: white;
+            font-size: 10px;
+            font-weight: 800;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 6px;
+        }
+        
+        /* Delivery Point Card */
+        .delivery-card {
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .delivery-card:hover { border-color: #fed7aa; background: #fff7ed; }
+        .delivery-card.selected { border-color: #f97316; background: #fff7ed; }
+        
+        /* Timeline */
+        .timeline-item {
+            position: relative;
+            padding-left: 32px;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 32px;
+            bottom: -16px;
+            width: 2px;
+            background: #e5e7eb;
+        }
+        .timeline-item:last-child::before { display: none; }
+        .timeline-item.completed::before { background: #22c55e; }
+        
+        .timeline-dot {
+            position: absolute;
+            left: 0;
+            top: 4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px currentColor;
+            z-index: 1;
+        }
+        .timeline-dot.active {
+            box-shadow: 0 0 0 2px currentColor, 0 0 0 6px rgba(249, 115, 22, 0.2);
+            animation: pulseDot 2s infinite;
+        }
+        @keyframes pulseDot {
+            0%, 100% { box-shadow: 0 0 0 2px currentColor, 0 0 0 6px rgba(249, 115, 22, 0.2); }
+            50% { box-shadow: 0 0 0 2px currentColor, 0 0 0 10px rgba(249, 115, 22, 0.1); }
+        }
+        
+        /* Order Card Hover */
+        .order-card {
+            transition: all 0.3s ease;
+        }
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px -15px rgba(0,0,0,0.1);
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Map Container */
+        #tracking-map { height: 200px; border-radius: 16px; z-index: 1; }
+        
+        /* Rating Stars */
+        .star-rating {
+            display: flex;
+            gap: 4px;
+        }
+        .star {
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .star:hover { transform: scale(1.2); }
+        .star.filled { color: #fbbf24; }
+        .star.empty { color: #d1d5db; }
+        
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+            background-size: 200% 100%;
+            animation: skeleton 1.5s infinite;
+        }
+        @keyframes skeleton {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* Bottom Sheet */
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 24px 24px 0 0;
+            z-index: 102;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .bottom-sheet.open { transform: translateY(0); }
+        
+        .sheet-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 101;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        .sheet-overlay.open { opacity: 1; visibility: visible; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans pb-20 md:pb-0">
+
+    <!-- SVG Icons -->
+    <svg style="display: none;">
+        <symbol id="icon-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+        </symbol>
+        <symbol id="icon-orders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 0 1-8 0"/>
+        </symbol>
+        <symbol id="icon-profile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+        </symbol>
+        <symbol id="icon-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="9" cy="21" r="1"/>
+            <circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+        </symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+        </symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </symbol>
+        <symbol id="icon-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </symbol>
+        <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+        </symbol>
+        <symbol id="icon-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="3" width="15" height="13"/>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+            <circle cx="5.5" cy="18.5" r="2.5"/>
+            <circle cx="18.5" cy="18.5" r="2.5"/>
+        </symbol>
+        <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+        </symbol>
+        <symbol id="icon-map-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+        </symbol>
+        <symbol id="icon-cash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M6 10h.01M18 14h.01"></path>
+        </symbol>
+        <symbol id="icon-credit-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+        </symbol>
+        <symbol id="icon-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </symbol>
+        <symbol id="icon-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+        </symbol>
+        <symbol id="icon-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/>
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </symbol>
+        <symbol id="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </symbol>
+        <symbol id="icon-star" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </symbol>
+        <symbol id="icon-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </symbol>
+        <symbol id="icon-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </symbol>
+        <symbol id="icon-message" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </symbol>
+        <symbol id="icon-utensils" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
+            <path d="M7 2v20"/>
+            <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+        </symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="3 6 5 6 21 6"></polyline>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+</symbol>
+<symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="9 18 15 12 9 6"/>
+</symbol>
+    </svg>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Order Confirmation Modal -->
+    <div class="modal-overlay" id="confirm-modal-overlay" onclick="closeConfirmModal()"></div>
+    <div class="modal-content bg-white rounded-3xl shadow-2xl" id="confirm-modal">
+        <div class="p-6 md:p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-2xl font-black text-gray-800">Confirm Order</h3>
+                    <p class="text-sm text-gray-500 mt-1">Review your order details</p>
+                </div>
+                <button onclick="closeConfirmModal()" class="p-2 hover:bg-gray-100 rounded-full transition">
+                    <svg class="w-6 h-6 text-gray-400"><use href="#icon-x"/></svg>
+                </button>
+            </div>
+            
+            <div class="bg-gray-50 rounded-2xl p-4 mb-6 max-h-48 overflow-y-auto" id="confirm-items"></div>
+            
+            <div class="space-y-3 mb-6">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">Subtotal</span>
+                    <span class="font-semibold" id="confirm-subtotal">KES 0</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">Service Fee</span>
+                    <span class="font-semibold">KES 20</span>
+                </div>
+                <div class="flex justify-between text-lg font-black pt-3 border-t">
+                    <span>Total</span>
+                    <span class="text-orange-600" id="confirm-total">KES 20</span>
+                </div>
+            </div>
+
+            <!-- Phone Number Input -->
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-orange-500"><use href="#icon-phone"/></svg>
+                    Contact Phone Number
+                </label>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">+254</span>
+                    <input type="tel" id="phone-number" placeholder="712345678" maxlength="9" 
+                        class="w-full pl-16 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:bg-white transition font-semibold text-lg tracking-wide"
+                        oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                </div>
+                <p class="text-xs text-gray-400 mt-2">Used for delivery updates, and for M-Pesa if you pay online</p>
+            </div>
+
+            <!-- Payment Method Selection -->
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-orange-500"><use href="#icon-credit-card"/></svg>
+                    Payment Method
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="payment-method-list">
+                    <div class="delivery-card p-4 rounded-xl cursor-pointer bg-gray-50" data-method="cash" onclick="selectPaymentMethod('cash')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-white text-gray-400 flex items-center justify-center flex-shrink-0 transition payment-icon-cash">
+                                <svg class="w-5 h-5"><use href="#icon-cash"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <h5 class="font-bold text-sm text-gray-800 payment-label-cash">Cash on Delivery</h5>
+                                <p class="text-xs text-gray-500 mt-0.5">Pay when your order arrives</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="delivery-card p-4 rounded-xl cursor-pointer bg-gray-50" data-method="paystack" onclick="selectPaymentMethod('paystack')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-white text-gray-400 flex items-center justify-center flex-shrink-0 transition payment-icon-paystack">
+                                <svg class="w-5 h-5"><use href="#icon-credit-card"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <h5 class="font-bold text-sm text-gray-800 payment-label-paystack">M-Pesa / Card</h5>
+                                <p class="text-xs text-gray-500 mt-0.5">Pay now via Paystack</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-orange-500"><use href="#icon-map-pin"/></svg>
+                    Select Delivery Point
+                </label>
+                <div class="grid grid-cols-1 gap-3 max-h-48 overflow-y-auto" id="delivery-points-list">
+                    <p class="text-sm text-gray-400 italic">Loading delivery points...</p>
+                </div>
+            </div>
+
+            <button onclick="processCheckout()" id="checkout-btn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-600 transform transition active:scale-95 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5"><use href="#icon-credit-card"/></svg>
+                <span id="checkout-btn-label">Select a Payment Method</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Order Detail Modal with Live Tracking -->
+    <div class="modal-overlay" id="detail-modal-overlay" onclick="closeDetailModal()"></div>
+    <div class="modal-content bg-white rounded-3xl shadow-2xl" id="detail-modal">
+        <div class="p-6 md:p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-xl font-black text-gray-800">Order Details</h3>
+                    <p class="text-sm text-gray-500 mt-1" id="detail-order-id">#ORDER123</p>
+                </div>
+                <button onclick="closeDetailModal()" class="p-2 hover:bg-gray-100 rounded-full transition">
+                    <svg class="w-6 h-6 text-gray-400"><use href="#icon-x"/></svg>
+                </button>
+            </div>
+            
+            <!-- Live Status Banner -->
+            <div id="live-status-banner" class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 text-white hidden">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center live-pulse">
+                        <svg class="w-5 h-5"><use href="#icon-truck"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold opacity-90">Live Tracking</p>
+                        <p class="font-bold">Your order is on the way!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map for dispatched orders -->
+            <div id="tracking-map-container" class="mb-6 hidden">
+                <div id="tracking-map"></div>
+                <div class="mt-2 flex items-center gap-2 text-sm text-gray-600">
+                    <svg class="w-4 h-4 text-orange-500"><use href="#icon-clock"/></svg>
+                    <span id="eta-text">Estimated arrival: 5-10 minutes</span>
+                </div>
+            </div>
+            
+            <div id="detail-content" class="space-y-6">
+                <!-- Content populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal -->
+    <div class="modal-overlay" id="rating-modal-overlay" onclick="closeRatingModal()"></div>
+    <div class="modal-content bg-white rounded-3xl shadow-2xl" id="rating-modal">
+        <div class="p-6 md:p-8 text-center">
+            <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-orange-500"><use href="#icon-star"/></svg>
+            </div>
+            <h3 class="text-xl font-black text-gray-800 mb-2">Rate Your Order</h3>
+            <p class="text-sm text-gray-500 mb-6">How was your food and delivery experience?</p>
+            
+            <div class="star-rating justify-center mb-6 text-3xl" id="star-container">
+                <span class="star empty" data-rating="1">★</span>
+                <span class="star empty" data-rating="2">★</span>
+                <span class="star empty" data-rating="3">★</span>
+                <span class="star empty" data-rating="4">★</span>
+                <span class="star empty" data-rating="5">★</span>
+            </div>
+            
+            <textarea id="rating-comment" rows="3" placeholder="Tell us more about your experience (optional)" 
+                class="w-full p-4 bg-gray-50 rounded-xl mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"></textarea>
+            
+            <button onclick="submitRating()" id="rating-submit-btn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-600 transition shadow-lg">
+                Submit Review
+            </button>
+        </div>
+    </div>
+
+    <!-- Desktop Sidebar -->
+    <aside class="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 hidden md:flex flex-col z-40">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold text-orange-600 flex items-center gap-2 italic">
+                <svg class="w-8 h-8"><use href="#icon-utensils"/></svg>
+                CANTEEN.OS
+            </h1>
+        </div>
+        <nav class="flex-1 px-4 space-y-1">
+            <button onclick="showSection('home')" class="nav-link w-full flex items-center px-4 py-3 rounded-xl transition hover:bg-orange-50 text-orange-600 bg-orange-50 font-semibold" id="nav-home">
+                <svg class="w-5 h-5 mr-3"><use href="#icon-home"/></svg> Menu
+            </button>
+            <button onclick="showSection('orders')" class="nav-link w-full flex items-center px-4 py-3 rounded-xl transition hover:bg-orange-50 text-gray-600" id="nav-orders">
+                <svg class="w-5 h-5 mr-3"><use href="#icon-orders"/></svg> My Orders
+                <span id="nav-orders-badge" class="ml-auto bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
+            </button>
+            <button onclick="showSection('cart')" class="nav-link w-full flex items-center px-4 py-3 rounded-xl transition hover:bg-orange-50 text-gray-600 relative" id="nav-cart">
+                <svg class="w-5 h-5 mr-3"><use href="#icon-cart"/></svg> Cart
+                <span id="cart-badge-desktop" class="cart-badge hidden">0</span>
+            </button>
+            <button onclick="showSection('profile')" class="nav-link w-full flex items-center px-4 py-3 rounded-xl transition hover:bg-orange-50 text-gray-600" id="nav-profile">
+                <svg class="w-5 h-5 mr-3"><use href="#icon-profile"/></svg> Profile
+            </button>
+        </nav>
+        <div class="p-4 border-t border-gray-100">
+            <button onclick="logout()" class="w-full flex items-center px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition">
+                <svg class="w-5 h-5 mr-3"><use href="#icon-logout"/></svg> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="md:ml-64 min-h-screen">
+        <!-- Header -->
+        <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-200 px-4 md:px-6 py-4">
+            <div class="flex justify-between items-center max-w-5xl mx-auto">
+                <div>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Strathmore University</p>
+                    <h2 class="text-lg md:text-xl font-bold text-gray-800" id="welcome-text">Hi, Guest</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="showSection('cart')" class="relative p-2 hover:bg-gray-100 rounded-full transition md:hidden">
+                        <svg class="w-6 h-6 text-gray-600"><use href="#icon-cart"/></svg>
+                        <span id="cart-badge-mobile-header" class="cart-badge hidden">0</span>
+                    </button>
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold shadow-md" id="user-initial">U</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-4 md:p-6 max-w-5xl mx-auto">
+            
+            <!-- Home Section -->
+            <section id="section-home" class="section-fade">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-gray-800 tracking-tight">Today's Menu</h3>
+                        <p class="text-sm text-gray-500 mt-1">Fresh meals prepared daily</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                            Kitchen Open
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Search -->
+                <div class="relative mb-4">
+                    <svg class="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"><use href="#icon-search"/></svg>
+                    <input type="text" id="search-menu" placeholder="Search for food..." class="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm" onkeyup="filterMenu()">
+                </div>
+
+                <!-- Categories -->
+                <div class="flex gap-2 mb-6 overflow-x-auto no-scrollbar pb-2">
+                    <button onclick="filterCategory('all')" class="category-btn px-4 py-2 bg-orange-500 text-white rounded-full text-xs font-bold whitespace-nowrap" data-category="all">All</button>
+                    <button onclick="filterCategory('breakfast')" class="category-btn px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gray-50" data-category="breakfast">Breakfast</button>
+                    <button onclick="filterCategory('lunch')" class="category-btn px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gray-50" data-category="lunch">Lunch</button>
+                    <button onclick="filterCategory('snacks')" class="category-btn px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gray-50" data-category="snacks">Snacks</button>
+                    <button onclick="filterCategory('beverages')" class="category-btn px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gray-50" data-category="beverages">Beverages</button>
+                </div>
+
+                <!-- Menu Grid -->
+                <div id="menu-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    <div class="skeleton h-64 rounded-3xl"></div>
+                    <div class="skeleton h-64 rounded-3xl"></div>
+                    <div class="skeleton h-64 rounded-3xl"></div>
+                </div>
+            </section>
+
+            <!-- Cart Section -->
+            <section id="section-cart" class="section-fade hidden">
+                <h3 class="text-2xl font-extrabold text-gray-800 mb-6">Your Cart</h3>
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div id="cart-empty" class="text-center py-16 px-6">
+                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-10 h-10 text-gray-400"><use href="#icon-cart"/></svg>
+                        </div>
+                        <p class="text-gray-500 font-medium mb-4">Your cart is empty</p>
+                        <button onclick="showSection('home')" class="px-6 py-2.5 bg-orange-500 text-white rounded-full text-sm font-bold hover:bg-orange-600 transition">Browse Menu</button>
+                    </div>
+                    
+                    <div id="cart-items" class="hidden divide-y divide-gray-100"></div>
+                    
+                    <div id="cart-footer" class="hidden p-6 bg-gray-50">
+                        <div class="space-y-2 mb-4">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-500">Subtotal</span>
+                                <span class="font-semibold" id="cart-subtotal">KES 0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-500">Service Fee</span>
+                                <span class="font-semibold">KES 20</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-4 border-t border-gray-200 mb-6">
+                            <span class="font-bold text-lg">Total</span>
+                            <span class="text-2xl font-black text-orange-600" id="cart-total">KES 20</span>
+                        </div>
+                        <button onclick="openConfirmModal()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-600 transform transition active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5"><use href="#icon-credit-card"/></svg>
+                            Proceed to Checkout
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Orders Section - ENHANCED -->
+            <section id="section-orders" class="section-fade hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-gray-800">My Orders</h3>
+                        <p class="text-sm text-gray-500 mt-1">Track and manage all your orders</p>
+                    </div>
+                    <div class="flex gap-2">
+    <button onclick="showOrdersFilter('all')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-bold bg-slate-900 text-white" data-filter="all">All</button>
+    <button onclick="showOrdersFilter('active')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600" data-filter="active">Active</button>
+    <button onclick="showOrdersFilter('history')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600" data-filter="history">History</button>
+    <button onclick="showOrdersFilter('cancelled')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600" data-filter="cancelled">Cancelled</button>
+</div>
+                </div>
+                
+                <!-- Active Orders Summary -->
+                <div id="active-orders-summary" class="hidden mb-6 p-4 bg-gradient-to-r from-orange-50 to-orange-100/50 rounded-2xl border border-orange-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white live-pulse">
+                            <svg class="w-6 h-6"><use href="#icon-clock"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-orange-800">You have active orders</p>
+                            <p class="text-xs text-orange-600">We're preparing your food with care</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="orders-list" class="space-y-4">
+                    <!-- Orders populated here -->
+                </div>
+            </section>
+
+            <!-- Profile Section -->
+            <section id="section-profile" class="section-fade hidden">
+                <h3 class="text-2xl font-extrabold text-gray-800 mb-6">Account</h3>
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="p-8 text-center border-b border-gray-100">
+                        <div class="w-24 h-24 bg-orange-100 rounded-full mx-auto flex items-center justify-center mb-4 relative">
+                            <svg class="w-12 h-12 text-orange-600"><use href="#icon-profile"/></svg>
+                            <div class="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-800" id="profile-email">loading...</h4>
+                        <p class="text-gray-400 text-xs uppercase font-bold tracking-wider mt-1">Verified Student</p>
+                    </div>
+                    
+                    <div class="divide-y divide-gray-100">
+                        <div class="p-4 flex items-center justify-between hover:bg-gray-50 transition cursor-pointer" onclick="showSection('orders')">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-blue-500"><use href="#icon-package"/></svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-sm">Order History</p>
+                                    <p class="text-xs text-gray-400">View past orders</p>
+                                </div>
+                            </div>
+                            <svg class="w-5 h-5 text-gray-300"><use href="#icon-chevron-right"/></svg>
+                        </div>
+                        <div class="p-4 flex items-center justify-between hover:bg-gray-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-green-500"><use href="#icon-credit-card"/></svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-sm">Payment Method</p>
+                                    <p class="text-xs text-gray-400">M-Pesa</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">Active</span>
+                        </div>
+                        <div class="p-4 flex items-center justify-between hover:bg-gray-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-purple-500"><use href="#icon-phone"/></svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-sm">Phone Number</p>
+                                    <p class="text-xs text-gray-400" id="profile-phone">Not set</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-4 flex items-center justify-between hover:bg-gray-50 transition cursor-pointer" onclick="showMyReviews()">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-yellow-50 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5 text-yellow-500"><use href="#icon-star"/></svg>
+        </div>
+        <div>
+            <p class="font-semibold text-sm">My Reviews</p>
+            <p class="text-xs text-gray-400" id="reviews-count-text">0 reviews</p>
+        </div>
+    </div>
+    <svg class="w-5 h-5 text-gray-300"><use href="#icon-chevron-right"/></svg>
+</div>
+<div class="p-4 flex items-center justify-between hover:bg-gray-50 transition">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5 text-orange-500"><use href="#icon-bell"/></svg>
+        </div>
+        <div>
+            <p class="font-semibold text-sm">Notifications</p>
+            <p class="text-xs text-gray-400">Enabled</p>
+        </div>
+    </div>
+    <div class="w-10 h-6 bg-green-500 rounded-full relative">
+        <div class="w-4 h-4 bg-white rounded-full absolute right-1 top-1 shadow"></div>
+    </div>
+</div>
+                    </div>
+
+                    <div class="p-4">
+                        <button onclick="logout()" class="w-full bg-red-50 text-red-600 py-3 rounded-2xl font-bold hover:bg-red-100 transition flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5"><use href="#icon-logout"/></svg>
+                            Log Out
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Mobile Bottom Nav -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-2 md:hidden z-40 pb-safe">
+        <button onclick="showSection('home')" class="mobile-nav-link flex flex-col items-center py-2 px-4 text-orange-500" id="m-nav-home">
+            <svg class="w-6 h-6"><use href="#icon-home"/></svg>
+            <span class="text-[10px] font-bold mt-1">Menu</span>
+        </button>
+        <button onclick="showSection('cart')" class="mobile-nav-link flex flex-col items-center py-2 px-4 text-gray-400 relative" id="m-nav-cart">
+            <svg class="w-6 h-6"><use href="#icon-cart"/></svg>
+            <span id="cart-badge-mobile" class="cart-badge hidden" style="top: 0; right: 8px;">0</span>
+            <span class="text-[10px] font-medium mt-1">Cart</span>
+        </button>
+        <button onclick="showSection('orders')" class="mobile-nav-link flex flex-col items-center py-2 px-4 text-gray-400 relative" id="m-nav-orders">
+            <svg class="w-6 h-6"><use href="#icon-orders"/></svg>
+            <span id="orders-badge-mobile" class="cart-badge hidden" style="top: 0; right: 4px; background: #3b82f6;">0</span>
+            <span class="text-[10px] font-medium mt-1">Orders</span>
+        </button>
+        <button onclick="showSection('profile')" class="mobile-nav-link flex flex-col items-center py-2 px-4 text-gray-400" id="m-nav-profile">
+            <svg class="w-6 h-6"><use href="#icon-profile"/></svg>
+            <span class="text-[10px] font-medium mt-1">Profile</span>
+        </button>
+    </nav>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, serverTimestamp, doc, updateDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpwR1fxkEMTkpcVIQtkzcu91Ce-VJ2pYs",
+            authDomain: "mark-kenya.firebaseapp.com",
+            projectId: "mark-kenya",
+            storageBucket: "mark-kenya.firebasestorage.app",
+            messagingSenderId: "205623271753",
+            appId: "1:205623271753:web:8b3e8f46bfc0784f577a98"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // ---- Paystack config ----
+        // Only the PUBLIC key ever belongs in frontend code - it's designed to be visible
+        // to anyone viewing page source, the same way a shop's till number is public.
+        // The SECRET key must NEVER appear here. It is used only inside the Cloud Function
+        // in functions/index.js, which runs on Google's servers, not in the browser.
+        const PAYSTACK_PUBLIC_KEY = "pk_live_48b4fa868492ff7b8639123afebf3e6b606185ed";
+        // After you deploy the Cloud Function in functions/index.js, paste its URL here.
+        // Until then, payments still work, but skip server-side verification (see note in that file).
+        const PAYSTACK_VERIFY_URL = ""; // e.g. "https://us-central1-mark-kenya.cloudfunctions.net/verifyPaystackPayment"
+
+        let userEmail = "";
+        let userName = "";
+        let userPhone = "";
+        let menuItems = [];
+        let cart = JSON.parse(localStorage.getItem('canteen_cart') || '[]');
+        let deliveryPoints = [];
+        let selectedDeliveryPoint = null;
+        let selectedPaymentMethod = null; // 'cash' | 'paystack'
+        let myOrders = [];
+        let currentOrderFilter = 'all';
+        let currentRatingOrderId = null;
+        let trackingMap = null;
+        let orderListenerUnsubscribe = null;
+
+        // Toast Notification System
+        function showToast(message, type = 'success', duration = 4000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
+                info: '<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                warning: '<svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+                error: '<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>'
+            };
+            
+            toast.innerHTML = `
+                ${icons[type]}
+                <span class="text-sm font-semibold text-gray-800">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, duration);
+        }
+
+        // Update Cart Badges
+        function updateCartBadges() {
+            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const badges = ['cart-badge-desktop', 'cart-badge-mobile-header', 'cart-badge-mobile'];
+            badges.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.textContent = count;
+                    el.classList.toggle('hidden', count === 0);
+                }
+            });
+        }
+
+        // Menu Functions
+        window.filterCategory = (category) => {
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                const isActive = btn.dataset.category === category;
+                btn.className = isActive 
+                    ? 'category-btn px-4 py-2 bg-orange-500 text-white rounded-full text-xs font-bold whitespace-nowrap'
+                    : 'category-btn px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gray-50';
+            });
+            renderMenu(category);
+        };
+
+        window.filterMenu = () => {
+            const search = document.getElementById('search-menu').value.toLowerCase();
+            const activeCategory = document.querySelector('.category-btn.bg-orange-500')?.dataset.category || 'all';
+            renderMenu(activeCategory, search);
+        };
+function getItemReviews(itemId) {
+    return myOrders.filter(order => 
+        order.data.items?.some(item => item.id === itemId) && order.data.rating
+    );
+}
+
+function getItemRating(itemId) {
+    const reviews = getItemReviews(itemId);
+    if (reviews.length === 0) return null;
+    const avg = reviews.reduce((sum, r) => sum + r.data.rating.stars, 0) / reviews.length;
+    return { avg: avg.toFixed(1), count: reviews.length };
+}
+        function renderMenu(category = 'all', search = '') {
+    const container = document.getElementById('menu-container');
+    container.innerHTML = '';
+    
+    const filtered = menuItems.filter(item => {
+        const matchCategory = category === 'all' || item.category === category;
+        const matchSearch = item.name.toLowerCase().includes(search);
+        return matchCategory && matchSearch;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<p class="col-span-full text-center text-gray-400 py-12">No items found</p>';
+        return;
+    }
+
+    filtered.forEach(item => {
+        const inCart = cart.find(c => c.id === item.id);
+        const qty = inCart ? inCart.quantity : 0;
+        const rating = getItemRating(item.id);
+        const isAvailable = item.active !== false;
+        
+        container.innerHTML += `
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 group ${!isAvailable ? 'opacity-70' : ''}">
+                <div class="h-44 relative overflow-hidden bg-gray-100 cursor-pointer" onclick="showFoodReviews('${item.id}')">
+                    <img src="${item.image || 'https://via.placeholder.com/400x200?text=No+Image'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!isAvailable ? 'grayscale' : ''}" alt="${item.name}" loading="lazy">
+                    
+                    <!-- Category badge - top right -->
+                    ${item.category ? `<span class="absolute top-3 right-3 px-2 py-1 bg-white/90 backdrop-blur text-[10px] font-bold rounded-full uppercase">${item.category}</span>` : ''}
+                    
+                    <!-- Rating badge - top left (THE OVERLAY HINT) -->
+                    ${!isAvailable ? `
+                        <div class="absolute top-3 left-3 px-2.5 py-1 bg-slate-900/90 backdrop-blur rounded-full text-[10px] font-bold uppercase text-white">Unavailable</div>
+                    ` : rating ? `
+                        <div class="absolute top-3 left-3 px-2 py-1 bg-white/95 backdrop-blur rounded-full flex items-center gap-1 shadow-sm">
+                            <svg class="w-3.5 h-3.5 text-yellow-500" fill="currentColor"><use href="#icon-star"/></svg>
+                            <span class="text-xs font-bold text-gray-800">${rating.avg}</span>
+                            <span class="text-xs text-gray-500">(${rating.count})</span>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Price - bottom left -->
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                        <span class="text-white font-black text-xl">KES ${item.price}</span>
+                    </div>
+                </div>
+                
+                <div class="p-5">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-bold text-lg text-gray-800">${item.name}</h4>
+                        ${rating ? `
+                            <div class="flex items-center gap-1 text-yellow-500">
+                                <svg class="w-4 h-4" fill="currentColor"><use href="#icon-star"/></svg>
+                                <span class="text-sm font-bold">${rating.avg}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <p class="text-xs text-gray-500 mb-4 line-clamp-2">${item.description || 'Fresh from the kitchen'}</p>
+                    
+                    <div onclick="event.stopPropagation();">
+                        ${!isAvailable ? `
+                            <button disabled class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2">
+                                Currently Unavailable
+                            </button>
+                        ` : qty > 0 ? `
+                            <div class="flex items-center justify-between bg-gray-100 rounded-xl p-1.5">
+                                <button onclick="updateCart('${item.id}', -1)" class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm hover:bg-gray-50 active:scale-95 transition">
+                                    <svg class="w-5 h-5 text-gray-600"><use href="#icon-minus"/></svg>
+                                </button>
+                                <span class="font-bold text-lg w-8 text-center">${qty}</span>
+                                <button onclick="updateCart('${item.id}', 1)" class="w-10 h-10 bg-orange-500 text-white rounded-lg flex items-center justify-center shadow-sm hover:bg-orange-600 active:scale-95 transition">
+                                    <svg class="w-5 h-5"><use href="#icon-plus"/></svg>
+                                </button>
+                            </div>
+                        ` : `
+                            <button onclick="updateCart('${item.id}', 1)" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-orange-600 transform transition active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4"><use href="#icon-plus"/></svg>
+                                Add to Cart
+                            </button>
+                        `}
+                    </div>
+                </div>
+            </div>`;
+    });
+}
+
+
+        // Cart Functions
+        window.updateCart = (itemId, change) => {
+            const item = menuItems.find(m => m.id === itemId);
+            if (!item) return;
+
+            if (change > 0 && item.active === false) {
+                showToast('This item is currently unavailable', 'error');
+                return;
+            }
+
+            const existing = cart.find(c => c.id === itemId);
+            if (existing) {
+                existing.quantity += change;
+                if (existing.quantity <= 0) {
+                    cart = cart.filter(c => c.id !== itemId);
+                }
+            } else if (change > 0) {
+                cart.push({ 
+                    id: itemId, 
+                    name: item.name, 
+                    price: item.price, 
+                    image: item.image,
+                    quantity: 1 
+                });
+            }
+
+            localStorage.setItem('canteen_cart', JSON.stringify(cart));
+            updateCartBadges();
+            renderMenu();
+            if (!document.getElementById('section-cart').classList.contains('hidden')) {
+                renderCart();
+            }
+            
+            if (change > 0) showToast('Added to cart', 'success', 2000);
+        };
+
+        function renderCart() {
+    const container = document.getElementById('cart-items');
+    const emptyState = document.getElementById('cart-empty');
+    const footer = document.getElementById('cart-footer');
+    
+    if (cart.length === 0) {
+        container.classList.add('hidden');
+        footer.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        return;
+    }
+
+    emptyState.classList.add('hidden');
+    container.classList.remove('hidden');
+    footer.classList.remove('hidden');
+
+    container.innerHTML = cart.map(item => `
+        <div class="p-4 flex items-center gap-4">
+            <img src="${item.image || 'https://via.placeholder.com/60'}" class="w-16 h-16 rounded-xl object-cover bg-gray-100">
+            <div class="flex-1">
+                <h4 class="font-bold text-gray-800">${item.name}</h4>
+                <p class="text-sm text-gray-500">KES ${item.price.toLocaleString()} each</p>
+            </div>
+            <div class="flex items-center gap-3 bg-gray-100 rounded-xl p-1">
+                <button onclick="updateCart('${item.id}', -1)" class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm hover:bg-gray-50">
+                    <svg class="w-4 h-4 text-gray-600"><use href="#icon-minus"/></svg>
+                </button>
+                <span class="font-bold w-6 text-center">${item.quantity}</span>
+                <button onclick="updateCart('${item.id}', 1)" class="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center shadow-sm hover:bg-orange-600">
+                    <svg class="w-4 h-4"><use href="#icon-plus"/></svg>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    document.getElementById('cart-subtotal').textContent = `KES ${subtotal.toLocaleString()}`;
+    document.getElementById('cart-total').textContent = `KES ${(subtotal + 20).toLocaleString()}`;
+}
+
+        // Confirmation Modal
+        window.openConfirmModal = () => {
+            if (cart.length === 0) return;
+            
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const total = subtotal + 20;
+            
+            document.getElementById('confirm-items').innerHTML = cart.map(item => `
+                <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                    <div class="flex items-center gap-3">
+                        <img src="${item.image || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-lg object-cover bg-gray-100">
+                        <div>
+                            <p class="font-semibold text-sm">${item.name}</p>
+                            <p class="text-xs text-gray-400">x${item.quantity}</p>
+                        </div>
+                    </div>
+                    <span class="font-bold text-sm">KES ${(item.price * item.quantity).toLocaleString()}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('confirm-subtotal').textContent = `KES ${subtotal.toLocaleString()}`;
+            document.getElementById('confirm-total').textContent = `KES ${total.toLocaleString()}`;
+            
+            if (userPhone) {
+                document.getElementById('phone-number').value = userPhone.replace(/^254/, '').replace(/^0/, '');
+            }
+            
+            renderDeliveryPoints();
+            selectedPaymentMethod = null;
+            renderPaymentMethods();
+            updateCheckoutButtonLabel();
+            
+            document.getElementById('confirm-modal-overlay').classList.add('active');
+            document.getElementById('confirm-modal').classList.add('active');
+        };
+
+        window.closeConfirmModal = () => {
+            document.getElementById('confirm-modal-overlay').classList.remove('active');
+            document.getElementById('confirm-modal').classList.remove('active');
+            selectedDeliveryPoint = null;
+            selectedPaymentMethod = null;
+        };
+
+        function renderPaymentMethods() {
+            document.querySelectorAll('#payment-method-list [data-method]').forEach(card => {
+                const method = card.dataset.method;
+                const isSelected = selectedPaymentMethod === method;
+                card.classList.toggle('selected', isSelected);
+                card.classList.toggle('bg-gray-50', !isSelected);
+                const icon = card.querySelector(`.payment-icon-${method}`);
+                const label = card.querySelector(`.payment-label-${method}`);
+                if (icon) {
+                    icon.classList.toggle('bg-orange-500', isSelected);
+                    icon.classList.toggle('text-white', isSelected);
+                    icon.classList.toggle('bg-white', !isSelected);
+                    icon.classList.toggle('text-gray-400', !isSelected);
+                }
+                if (label) label.classList.toggle('text-orange-600', isSelected);
+            });
+        }
+
+        window.selectPaymentMethod = (method) => {
+            selectedPaymentMethod = method;
+            renderPaymentMethods();
+            updateCheckoutButtonLabel();
+        };
+
+        function updateCheckoutButtonLabel() {
+            const label = document.getElementById('checkout-btn-label');
+            if (!label) return;
+            if (selectedPaymentMethod === 'cash') {
+                label.textContent = 'Place Order - Pay on Delivery';
+            } else if (selectedPaymentMethod === 'paystack') {
+                label.textContent = 'Pay Now with Paystack';
+            } else {
+                label.textContent = 'Select a Payment Method';
+            }
+        }
+
+        function renderDeliveryPoints() {
+            const container = document.getElementById('delivery-points-list');
+            if (deliveryPoints.length === 0) {
+                container.innerHTML = '<p class="text-sm text-orange-500">No delivery points available. Please contact admin.</p>';
+                return;
+            }
+            
+            container.innerHTML = deliveryPoints.filter(dp => dp.active !== false).map((point) => `
+                <div class="delivery-card p-4 rounded-xl cursor-pointer ${selectedDeliveryPoint === point.id ? 'selected' : 'bg-gray-50'}" onclick="selectDeliveryPoint('${point.id}')">
+                    <div class="flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-full ${selectedDeliveryPoint === point.id ? 'bg-orange-500 text-white' : 'bg-white text-gray-400'} flex items-center justify-center flex-shrink-0 transition">
+                            <svg class="w-5 h-5"><use href="#icon-map-pin"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-bold text-sm ${selectedDeliveryPoint === point.id ? 'text-orange-600' : 'text-gray-800'}">${point.name}</h5>
+                            <p class="text-xs text-gray-500 mt-0.5">${point.description || 'Delivery location'}</p>
+                            ${point.estimatedTime ? `<p class="text-xs text-green-600 mt-1 font-medium">Est. ${point.estimatedTime}</p>` : ''}
+                        </div>
+                        ${selectedDeliveryPoint === point.id ? '<svg class="w-5 h-5 text-orange-500 flex-shrink-0"><use href="#icon-check"/></svg>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.selectDeliveryPoint = (id) => {
+            selectedDeliveryPoint = id;
+            renderDeliveryPoints();
+        };
+
+        function resetCheckoutBtn() {
+            const btn = document.getElementById('checkout-btn');
+            btn.disabled = false;
+            btn.innerHTML = `<svg class="w-5 h-5"><use href="#icon-credit-card"/></svg> <span id="checkout-btn-label"></span>`;
+            updateCheckoutButtonLabel();
+        }
+
+        window.processCheckout = async () => {
+            const phoneInput = document.getElementById('phone-number').value.trim();
+            if (!phoneInput || phoneInput.length < 9) {
+                showToast('Please enter a valid phone number', 'warning');
+                return;
+            }
+
+            if (!selectedDeliveryPoint) {
+                showToast('Please select a delivery point', 'warning');
+                return;
+            }
+
+            if (!selectedPaymentMethod) {
+                showToast('Please choose how you want to pay', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('checkout-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/></svg> Processing...`;
+
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const total = subtotal + 20;
+            const deliveryPoint = deliveryPoints.find(p => p.id === selectedDeliveryPoint);
+
+            let formattedPhone = phoneInput;
+            if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.substring(1);
+            if (!formattedPhone.startsWith('254')) formattedPhone = '254' + formattedPhone;
+
+            const baseOrderData = {
+                itemNames: cart.map(c => `${c.name} x${c.quantity}`),
+                items: cart,
+                totalPrice: total,
+                subtotal: subtotal,
+                serviceFee: 20,
+                customerEmail: userEmail,
+                customerName: userName,
+                customerPhone: formattedPhone,
+                deliveryPoint: {
+                    id: selectedDeliveryPoint,
+                    name: deliveryPoint?.name || 'Unknown',
+                    description: deliveryPoint?.description || ''
+                }
+            };
+
+            try {
+                await setDoc(doc(db, "users", userEmail), {
+                    phone: formattedPhone,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                userPhone = formattedPhone;
+                updateProfileDisplay();
+
+                if (selectedPaymentMethod === 'cash') {
+                    await finalizeOrder(baseOrderData, {
+                        paymentMethod: 'cash',
+                        paymentStatus: 'Pending (Pay on Delivery)'
+                    });
+                } else {
+                    // Paystack flow - the popup collects card/M-Pesa details itself.
+                    // We never touch or see the actual payment details in this code.
+                    payWithPaystack(baseOrderData, total);
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+                resetCheckoutBtn();
+            }
+        };
+
+        function payWithPaystack(baseOrderData, total) {
+            if (typeof PaystackPop === 'undefined') {
+                showToast('Payment library failed to load. Check your connection.', 'error');
+                resetCheckoutBtn();
+                return;
+            }
+
+            const reference = 'CANTEEN_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+
+            const handler = PaystackPop.setup({
+                key: PAYSTACK_PUBLIC_KEY,
+                email: userEmail,
+                amount: Math.round(total * 100), // Paystack expects the amount in kobo/cents
+                currency: 'KES',
+                ref: reference,
+                metadata: {
+                    custom_fields: [
+                        { display_name: "Customer Phone", variable_name: "customer_phone", value: baseOrderData.customerPhone },
+                        { display_name: "Delivery Point", variable_name: "delivery_point", value: baseOrderData.deliveryPoint.name }
+                    ]
+                },
+                callback: function(response) {
+                    // Runs after Paystack itself confirms the charge succeeded.
+                    // We still verify server-side before trusting it (see verifyPaymentServerSide).
+                    handlePaystackSuccess(baseOrderData, total, response.reference);
+                },
+                onClose: function() {
+                    showToast('Payment window closed - order was not placed', 'info');
+                    resetCheckoutBtn();
+                }
+            });
+            handler.openIframe();
+        }
+
+        async function handlePaystackSuccess(baseOrderData, total, reference) {
+            const btn = document.getElementById('checkout-btn');
+            btn.innerHTML = `<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/></svg> Verifying payment...`;
+
+            const verification = await verifyPaymentServerSide(reference, total);
+
+            try {
+                await finalizeOrder(baseOrderData, {
+                    paymentMethod: 'paystack',
+                    paymentReference: reference,
+                    paymentStatus: verification.verified ? 'Paid' : 'Paid (Unverified - check admin panel)'
+                });
+
+                if (!verification.verified) {
+                    console.warn('Paystack payment was not server-verified:', verification.reason);
+                }
+            } catch (e) {
+                showToast('Payment succeeded but saving the order failed: ' + e.message, 'error');
+                resetCheckoutBtn();
+            }
+        }
+
+        // Calls the Cloud Function in functions/index.js, which holds the Paystack SECRET key
+        // server-side and asks Paystack to confirm the charge really happened for this amount.
+        // If PAYSTACK_VERIFY_URL hasn't been set yet (function not deployed), this is skipped
+        // and the order is still created, flagged as unverified so an admin can double check.
+        async function verifyPaymentServerSide(reference, expectedAmount) {
+            if (!PAYSTACK_VERIFY_URL) {
+                return { verified: false, reason: 'Verification endpoint not configured yet' };
+            }
+            try {
+                const res = await fetch(PAYSTACK_VERIFY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reference, expectedAmount })
+                });
+                const data = await res.json();
+                return { verified: !!data.verified, reason: data.reason || '' };
+            } catch (e) {
+                return { verified: false, reason: e.message };
+            }
+        }
+
+        async function finalizeOrder(baseOrderData, paymentInfo) {
+            const orderData = {
+                ...baseOrderData,
+                ...paymentInfo,
+                status: "Pending",
+                statusHistory: [{
+                    status: "Pending",
+                    timestamp: new Date().toISOString(),
+                    note: "Order placed"
+                }],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            };
+
+            await addDoc(collection(db, "orders"), orderData);
+
+            cart = [];
+            localStorage.removeItem('canteen_cart');
+            updateCartBadges();
+            renderCart();
+            closeConfirmModal();
+            showToast(
+                paymentInfo.paymentMethod === 'cash' ? 'Order placed! Pay on delivery.' : 'Payment successful - order placed!',
+                'success'
+            );
+            showSection('orders');
+            resetCheckoutBtn();
+        }
+
+        // ENHANCED Orders Functions
+        window.showOrdersFilter = (filter) => {
+    currentOrderFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filter) {
+            btn.className = 'filter-btn px-3 py-1.5 rounded-full text-xs font-bold bg-slate-900 text-white';
+        } else {
+            btn.className = 'filter-btn px-3 py-1.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600';
+        }
+    });
+    
+    // Update filtered orders logic
+    let filteredOrders = myOrders;
+    if (filter === 'active') {
+        filteredOrders = myOrders.filter(o => !['Delivered', 'Cancelled'].includes(o.data.status));
+    } else if (filter === 'history') {
+        filteredOrders = myOrders.filter(o => o.data.status === 'Delivered');
+    } else if (filter === 'cancelled') {
+        filteredOrders = myOrders.filter(o => o.data.status === 'Cancelled');
+    }
+    
+    // Re-render with filtered orders
+    const container = document.getElementById('orders-list');
+    
+    if (filteredOrders.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-16 bg-white rounded-3xl border border-gray-100">
+                <svg class="w-20 h-20 mx-auto text-gray-200 mb-4"><use href="#icon-package"/></svg>
+                <p class="text-gray-400 font-medium mb-2">No orders found</p>
+                <p class="text-sm text-gray-300 mb-4">${filter === 'active' ? 'You have no active orders' : filter === 'cancelled' ? 'No cancelled orders' : 'Your order history is empty'}</p>
+                <button onclick="showSection('home')" class="px-6 py-2.5 bg-orange-500 text-white rounded-full text-sm font-bold hover:bg-orange-600 transition">Order Now</button>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = filteredOrders.map(d => createOrderCard(d)).join('');
+};
+
+        function renderOrders() {
+            const container = document.getElementById('orders-list');
+            
+            let filteredOrders = myOrders;
+            if (currentOrderFilter === 'active') {
+                filteredOrders = myOrders.filter(o => !['Delivered', 'Cancelled'].includes(o.data.status));
+            } else if (currentOrderFilter === 'history') {
+                filteredOrders = myOrders.filter(o => ['Delivered', 'Cancelled'].includes(o.data.status));
+            }
+            
+            // Update badges
+            const activeCount = myOrders.filter(o => !['Delivered', 'Cancelled'].includes(o.data.status)).length;
+            document.getElementById('nav-orders-badge').textContent = activeCount;
+            document.getElementById('nav-orders-badge').classList.toggle('hidden', activeCount === 0);
+            document.getElementById('orders-badge-mobile').textContent = activeCount;
+            document.getElementById('orders-badge-mobile').classList.toggle('hidden', activeCount === 0);
+            updateReviewsCount();
+            // Show/hide active orders summary
+            const summaryEl = document.getElementById('active-orders-summary');
+            if (activeCount > 0 && currentOrderFilter !== 'history') {
+                summaryEl.classList.remove('hidden');
+            } else {
+                summaryEl.classList.add('hidden');
+            }
+            
+            if (filteredOrders.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16 bg-white rounded-3xl border border-gray-100">
+                        <svg class="w-20 h-20 mx-auto text-gray-200 mb-4"><use href="#icon-package"/></svg>
+                        <p class="text-gray-400 font-medium mb-2">No orders found</p>
+                        <p class="text-sm text-gray-300 mb-4">${currentOrderFilter === 'active' ? 'You have no active orders' : 'Your order history is empty'}</p>
+                        <button onclick="showSection('home')" class="px-6 py-2.5 bg-orange-500 text-white rounded-full text-sm font-bold hover:bg-orange-600 transition">Order Now</button>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = filteredOrders.map(d => createOrderCard(d)).join('');
+        }
+
+        function createOrderCard(d) {
+            const o = d.data;
+            const statusConfig = {
+                'Pending': { 
+                    color: 'orange', 
+                    icon: 'icon-clock', 
+                    bg: 'bg-orange-50', 
+                    text: 'text-orange-600', 
+                    label: 'Pending Approval',
+                    desc: 'Waiting for admin confirmation',
+                    progress: 10
+                },
+                'Approved': { 
+                    color: 'blue', 
+                    icon: 'icon-utensils', 
+                    bg: 'bg-blue-50', 
+                    text: 'text-blue-600', 
+                    label: 'Preparing',
+                    desc: 'Your food is being prepared',
+                    progress: 40
+                },
+                'Dispatched': { 
+                    color: 'indigo', 
+                    icon: 'icon-truck', 
+                    bg: 'bg-indigo-50', 
+                    text: 'text-indigo-600', 
+                    label: 'On the Way',
+                    desc: 'Food is being delivered to you',
+                    progress: 75
+                },
+                'Delivered': { 
+                    color: 'green', 
+                    icon: 'icon-check', 
+                    bg: 'bg-green-50', 
+                    text: 'text-green-600', 
+                    label: 'Delivered',
+                    desc: 'Order completed - Enjoy!',
+                    progress: 100
+                },
+                'Cancelled': { 
+                    color: 'red', 
+                    icon: 'icon-x', 
+                    bg: 'bg-red-50', 
+                    text: 'text-red-600', 
+                    label: 'Cancelled',
+                    desc: 'Order was cancelled',
+                    progress: 0
+                }
+            };
+            
+            const config = statusConfig[o.status] || statusConfig['Pending'];
+            const date = o.createdAt ? new Date(o.createdAt.toDate()).toLocaleString('en-KE', { 
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+            }) : 'Just now';
+            
+            const items = Array.isArray(o.itemNames) ? o.itemNames.join(', ') : o.itemNames || 'Order';
+            const deliveryLocation = o.deliveryPoint?.name || 'Campus';
+            const isActive = !['Delivered', 'Cancelled'].includes(o.status);
+            const canRate = o.status === 'Delivered' && !o.rated;
+            
+            return `
+                <div class="order-card bg-white p-5 rounded-2xl border border-gray-100 shadow-sm ${isActive ? 'ring-1 ring-orange-100' : ''}" onclick="showOrderDetail('${d.id}')">
+                    <!-- Progress Bar for Active Orders -->
+                    ${isActive ? `
+                        <div class="mb-4">
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold ${config.text}">${config.label}</span>
+                                <span class="text-gray-400">${config.progress}%</span>
+                            </div>
+                            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-${config.color}-500 rounded-full progress-fill" style="width: ${config.progress}%"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 ${config.bg} rounded-xl flex items-center justify-center ${isActive ? 'live-pulse' : ''}">
+                                <svg class="w-6 h-6 ${config.text}"><use href="#${config.icon}"/></svg>
+                            </div>
+                            <div>
+                                <span class="status-badge ${config.bg} ${config.text}">
+                                    ${config.label}
+                                </span>
+                                <p class="text-xs text-gray-400 mt-1">${date}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono text-gray-300 bg-gray-50 px-2 py-1 rounded">#${d.id.slice(-6).toUpperCase()}</span>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-bold text-gray-800 text-sm line-clamp-2 mb-1">${items}</h4>
+                        <div class="flex items-center gap-3 text-xs text-gray-500">
+                            <span class="flex items-center gap-1">
+                                <svg class="w-3 h-3"><use href="#icon-map-pin"/></svg>
+                                ${deliveryLocation}
+                            </span>
+                            ${o.paymentMethod ? `
+                                <span class="flex items-center gap-1">
+                                    <svg class="w-3 h-3"><use href="#${o.paymentMethod === 'cash' ? 'icon-cash' : 'icon-credit-card'}"/></svg>
+                                    ${o.paymentMethod === 'cash' ? 'Cash on Delivery' : (o.paymentStatus || 'Paid Online')}
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    ${o.status === 'Cancelled' ? `
+    <div class="mt-3 p-3 bg-red-50 rounded-xl border border-red-100">
+        <div class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0"><use href="#icon-alert"/></svg>
+            <div>
+                <p class="text-xs font-bold text-red-600 mb-0.5">Cancelled</p>
+                <p class="text-sm text-red-700 line-clamp-2">${o.cancellationReason || 'Order cancelled by admin'}</p>
+            </div>
+        </div>
+    </div>
+` : ''}
+
+<div class="flex items-center justify-between pt-4 border-t border-gray-100">
+    <span class="text-lg font-black text-gray-800">KES ${o.totalPrice?.toLocaleString() || 0}</span>
+    <div class="flex gap-2" onclick="event.stopPropagation();">
+        ${o.status === 'Dispatched' ? `
+            <button onclick="markReceived('${d.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition flex items-center gap-1">
+                <svg class="w-4 h-4"><use href="#icon-check"/></svg>
+                Received
+            </button>
+        ` : canRate ? `
+            <button onclick="openRatingModal('${d.id}')" class="px-4 py-2 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 transition flex items-center gap-1">
+                <svg class="w-4 h-4"><use href="#icon-star"/></svg>
+                Rate
+            </button>
+        ` : o.status === 'Delivered' ? `
+            <span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-bold flex items-center gap-1">
+                <svg class="w-4 h-4"><use href="#icon-check"/></svg>
+                Completed
+            </span>
+        ` : o.status === 'Cancelled' ? `
+            <span class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold flex items-center gap-1">
+                <svg class="w-4 h-4"><use href="#icon-x"/></svg>
+                Cancelled
+            </span>
+        ` : ''}
+    </div>
+</div>
+                </div>
+            `;
+        }
+
+        // ENHANCED Order Detail with Live Tracking
+        window.showOrderDetail = (orderId) => {
+            const order = myOrders.find(o => o.id === orderId);
+            if (!order) return;
+            
+            const o = order.data;
+            const statusConfig = {
+                'Pending': { color: 'orange', label: 'Pending Approval', icon: 'icon-clock' },
+                'Approved': { color: 'blue', label: 'Preparing Your Food', icon: 'icon-utensils' },
+                'Dispatched': { color: 'indigo', label: 'Out for Delivery', icon: 'icon-truck' },
+                'Delivered': { color: 'green', label: 'Delivered', icon: 'icon-check' },
+                'Cancelled': { color: 'red', label: 'Cancelled', icon: 'icon-x' }
+            };
+            const cfg = statusConfig[o.status];
+            
+            // Show live banner if dispatched
+            const liveBanner = document.getElementById('live-status-banner');
+            const mapContainer = document.getElementById('tracking-map-container');
+            
+            if (o.status === 'Dispatched') {
+                liveBanner.classList.remove('hidden');
+                mapContainer.classList.remove('hidden');
+                setTimeout(() => initTrackingMap(o.deliveryPoint), 100);
+            } else {
+                liveBanner.classList.add('hidden');
+                mapContainer.classList.add('hidden');
+            }
+            
+            // Build Timeline
+            const timelineSteps = [
+                { status: 'Pending', label: 'Order Placed', icon: 'icon-check' },
+                { status: 'Approved', label: 'Preparing', icon: 'icon-utensils' },
+                { status: 'Dispatched', label: 'Out for Delivery', icon: 'icon-truck' },
+                { status: 'Delivered', label: 'Delivered', icon: 'icon-check' }
+            ];
+            
+            const currentStatusIndex = timelineSteps.findIndex(s => s.status === o.status);
+            
+            document.getElementById('detail-order-id').textContent = `#${orderId.slice(-8).toUpperCase()}`;
+            
+            document.getElementById('detail-content').innerHTML = `
+                <!-- Status Banner -->
+                <div class="flex items-center justify-between p-4 bg-${cfg.color}-50 rounded-2xl border border-${cfg.color}-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
+                            <svg class="w-6 h-6 text-${cfg.color}-500"><use href="#${cfg.icon}"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-${cfg.color}-600 uppercase mb-0.5">Current Status</p>
+                            <p class="font-bold text-${cfg.color}-700">${cfg.label}</p>
+                        </div>
+                    </div>
+                    ${o.status === 'Dispatched' ? `
+                        <div class="text-right">
+                            <p class="text-xs text-gray-500">ETA</p>
+                            <p class="font-black text-${cfg.color}-600">5-10 min</p>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <!-- Timeline -->
+                <div class="bg-gray-50 rounded-2xl p-5">
+                    <h4 class="font-bold text-sm mb-4 text-gray-700">Order Progress</h4>
+                    <div class="space-y-0">
+                        ${timelineSteps.map((step, idx) => {
+                            const isCompleted = idx <= currentStatusIndex;
+                            const isCurrent = idx === currentStatusIndex;
+                            const stepTime = o.statusHistory?.find(h => h.status === step.status)?.timestamp;
+                            const timeStr = stepTime ? new Date(stepTime).toLocaleTimeString('en-KE', {hour: '2-digit', minute:'2-digit'}) : '';
+                            
+                            return `
+                                <div class="timeline-item pb-6 ${isCompleted ? 'completed' : ''}">
+                                    <div class="timeline-dot ${isCompleted ? `text-${isCurrent ? cfg.color : 'green'}-500 ${isCurrent ? 'active' : ''}` : 'text-gray-300'}" 
+                                         style="background: ${isCompleted ? (isCurrent ? `var(--color-${cfg.color}-500)` : '#22c55e') : 'white'}; color: ${isCompleted ? 'white' : 'currentColor'}">
+                                        ${isCompleted && !isCurrent ? '<svg class="w-3 h-3"><use href="#icon-check"/></svg>' : ''}
+                                    </div>
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="font-bold text-sm ${isCompleted ? 'text-gray-800' : 'text-gray-400'}">${step.label}</p>
+                                            ${timeStr ? `<p class="text-xs text-gray-500 mt-0.5">${timeStr}</p>` : ''}
+                                        </div>
+                                        ${isCurrent ? `<span class="text-[10px] font-bold text-${cfg.color}-600 bg-${cfg.color}-50 px-2 py-0.5 rounded-full">NOW</span>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                
+                <!-- Order Items -->
+                <div class="bg-white border border-gray-100 rounded-2xl p-5">
+                    <h4 class="font-bold text-sm mb-3 text-gray-700">Order Items</h4>
+                    <div class="space-y-3">
+                        ${(o.items || []).map(item => `
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-3">
+                                    <img src="${item.image || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-lg object-cover bg-gray-100">
+                                    <div>
+                                        <p class="font-semibold text-sm text-gray-800">${item.name}</p>
+                                        <p class="text-xs text-gray-400">x${item.quantity}</p>
+                                    </div>
+                                </div>
+                                <span class="font-bold text-sm">KES ${(item.price * item.quantity).toLocaleString()}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="border-t mt-4 pt-4 space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Subtotal</span>
+                            <span class="font-semibold">KES ${o.subtotal?.toLocaleString() || 0}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Service Fee</span>
+                            <span class="font-semibold">KES ${o.serviceFee || 20}</span>
+                        </div>
+                        <div class="flex justify-between text-lg font-black pt-2 border-t">
+                            <span>Total</span>
+                            <span class="text-orange-600">KES ${o.totalPrice?.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Delivery Info -->
+                <div class="bg-white border border-gray-100 rounded-2xl p-5">
+                    <h4 class="font-bold text-sm mb-3 text-gray-700">Delivery Information</h4>
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg class="w-4 h-4 text-orange-500"><use href="#icon-map-pin"/></svg>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-sm">${o.deliveryPoint?.name}</p>
+                                <p class="text-xs text-gray-500">${o.deliveryPoint?.description || ''}</p>
+                            </div>
+                        </div>
+                        ${o.customerPhone ? `
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-blue-500"><use href="#icon-phone"/></svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-sm">+${o.customerPhone}</p>
+                                    <p class="text-xs text-gray-500">Contact number</p>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                ${o.status === 'Cancelled' && o.cancellationReason ? `
+                    <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-red-500"><use href="#icon-alert"/></svg>
+                            <span class="font-bold text-sm text-red-700">Cancellation Reason</span>
+                        </div>
+                        <p class="text-sm text-red-600">${o.cancellationReason}</p>
+                    </div>
+                ` : ''}
+                
+                ${o.rating ? `
+                    <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-yellow-500"><use href="#icon-star"/></svg>
+                            <span class="font-bold text-sm text-yellow-700">Your Rating</span>
+                        </div>
+                        <div class="flex items-center gap-1 mb-1">
+                            ${Array(5).fill(0).map((_, i) => `
+                                <svg class="w-5 h-5 ${i < o.rating.stars ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor"><use href="#icon-star"/></svg>
+                            `).join('')}
+                        </div>
+                        ${o.rating.comment ? `<p class="text-sm text-yellow-700">"${o.rating.comment}"</p>` : ''}
+                    </div>
+                ` : ''}
+            `;
+            
+            document.getElementById('detail-modal-overlay').classList.add('active');
+            document.getElementById('detail-modal').classList.add('active');
+        };
+
+        function initTrackingMap(deliveryPoint) {
+            if (trackingMap) {
+                trackingMap.remove();
+            }
+            
+            // Default to Strathmore coordinates if no delivery point coords
+            const lat = deliveryPoint?.lat || -1.3092;
+            const lng = deliveryPoint?.lng || 36.8128;
+            
+            trackingMap = L.map('tracking-map').setView([lat, lng], 16);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(trackingMap);
+            
+            // Add delivery point marker
+            const deliveryIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #f97316; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+            
+            L.marker([lat, lng], { icon: deliveryIcon }).addTo(trackingMap)
+                .bindPopup('Delivery Location').openPopup();
+            
+            // Simulate delivery person location (nearby)
+            const riderLat = lat + (Math.random() - 0.5) * 0.002;
+            const riderLng = lng + (Math.random() - 0.5) * 0.002;
+            
+            const riderIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(59,130,246,0.5); animation: pulse 2s infinite;"></div>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+            
+            L.marker([riderLat, riderLng], { icon: riderIcon }).addTo(trackingMap)
+                .bindPopup('Delivery Partner');
+        }
+
+        window.closeDetailModal = () => {
+            document.getElementById('detail-modal-overlay').classList.remove('active');
+            document.getElementById('detail-modal').classList.remove('active');
+            if (trackingMap) {
+                trackingMap.remove();
+                trackingMap = null;
+            }
+        };
+
+        window.markReceived = async (orderId) => {
+            try {
+                await updateDoc(doc(db, "orders", orderId), { 
+                    status: 'Delivered',
+                    deliveredAt: serverTimestamp(),
+                    'statusHistory': arrayUnion({
+                        status: 'Delivered',
+                        timestamp: new Date().toISOString(),
+                        note: 'Customer confirmed receipt'
+                    })
+                });
+                showToast('Enjoy your meal! 🎉', 'success');
+                setTimeout(() => openRatingModal(orderId), 1000);
+            } catch (e) {
+                showToast('Error updating order', 'error');
+            }
+        };
+
+        // Rating System
+        window.openRatingModal = (orderId) => {
+            currentRatingOrderId = orderId;
+            document.getElementById('rating-modal-overlay').classList.add('active');
+            document.getElementById('rating-modal').classList.add('active');
+            
+            // Reset stars
+            document.querySelectorAll('.star').forEach(star => {
+                star.classList.remove('filled');
+                star.classList.add('empty');
+            });
+            document.getElementById('rating-comment').value = '';
+        };
+
+        window.closeRatingModal = () => {
+            document.getElementById('rating-modal-overlay').classList.remove('active');
+            document.getElementById('rating-modal').classList.remove('active');
+            currentRatingOrderId = null;
+        };
+
+        // Star rating interaction
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.star').forEach(star => {
+                star.addEventListener('click', function() {
+                    const rating = parseInt(this.dataset.rating);
+                    document.querySelectorAll('.star').forEach((s, idx) => {
+                        if (idx < rating) {
+                            s.classList.remove('empty');
+                            s.classList.add('filled');
+                        } else {
+                            s.classList.remove('filled');
+                            s.classList.add('empty');
+                        }
+                    });
+                    document.getElementById('star-container').dataset.selectedRating = rating;
+                });
+            });
+        });
+
+        window.submitRating = async () => {
+            const rating = parseInt(document.getElementById('star-container').dataset.selectedRating || 0);
+            const comment = document.getElementById('rating-comment').value.trim();
+            
+            if (!rating) {
+                showToast('Please select a rating', 'warning');
+                return;
+            }
+            
+            try {
+                await updateDoc(doc(db, "orders", currentRatingOrderId), {
+                    rated: true,
+                    rating: {
+                        stars: rating,
+                        comment: comment,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+                showToast('Thank you for your feedback!', 'success');
+                closeRatingModal();
+            } catch (e) {
+                showToast('Error submitting rating', 'error');
+            }
+        };
+        // My Reviews Functions
+window.showMyReviews = () => {
+    const myReviews = getMyReviews();
+    
+    if (myReviews.length === 0) {
+        document.getElementById('my-reviews-list').innerHTML = `
+            <div class="text-center py-12">
+                <svg class="w-16 h-16 mx-auto text-gray-200 mb-4"><use href="#icon-star"/></svg>
+                <p class="text-gray-400 font-medium">No reviews yet</p>
+                <p class="text-sm text-gray-300 mt-2 mb-4">Orders you rate will appear here</p>
+                <button onclick="closeMyReviewsModal(); showSection('orders')" class="px-6 py-2.5 bg-orange-500 text-white rounded-full text-sm font-bold hover:bg-orange-600 transition">View Orders</button>
+            </div>
+        `;
+    } else {
+        document.getElementById('my-reviews-list').innerHTML = myReviews.map(order => `
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                            <span class="text-lg font-bold text-yellow-600">${order.data.rating.stars}</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1 mb-0.5">
+                                ${Array(5).fill(0).map((_, i) => `
+                                    <svg class="w-4 h-4 ${i < order.data.rating.stars ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor"><use href="#icon-star"/></svg>
+                                `).join('')}
+                            </div>
+                            <p class="text-xs text-gray-500">${order.data.createdAt?.toDate().toLocaleDateString() || 'Unknown date'}</p>
+                        </div>
+                    </div>
+                    <button onclick="deleteMyReview('${order.id}')" class="p-2 hover:bg-red-50 rounded-lg transition group" title="Delete Review">
+                        <svg class="w-4 h-4 text-gray-400 group-hover:text-red-500"><use href="#icon-trash"/></svg>
+                    </button>
+                </div>
+                <div class="mb-2">
+                    <p class="text-sm font-semibold text-gray-800">${order.data.items?.map(i => i.name).join(', ') || 'Order'}</p>
+                </div>
+                ${order.data.rating.comment ? `<p class="text-sm text-gray-600 bg-white p-3 rounded-lg">"${order.data.rating.comment}"</p>` : ''}
+            </div>
+        `).join('');
+    }
+    
+    document.getElementById('my-reviews-modal-overlay').classList.add('active');
+    document.getElementById('my-reviews-modal').classList.add('active');
+};
+
+window.closeMyReviewsModal = () => {
+    document.getElementById('my-reviews-modal-overlay').classList.remove('active');
+    document.getElementById('my-reviews-modal').classList.remove('active');
+};
+
+function getMyReviews() {
+    return myOrders.filter(o => o.data.rating).sort((a, b) => {
+        const timeA = a.data.rating.timestamp || a.data.createdAt?.toDate() || 0;
+        const timeB = b.data.rating.timestamp || b.data.createdAt?.toDate() || 0;
+        return new Date(timeB) - new Date(timeA);
+    });
+}
+
+window.deleteMyReview = async (orderId) => {
+    if (!confirm('Delete this review? This cannot be undone.')) return;
+    
+    try {
+        await updateDoc(doc(db, "orders", orderId), {
+            rating: null,
+            rated: false
+        });
+        showToast('Review deleted', 'success');
+        showMyReviews(); // Refresh the list
+        updateReviewsCount();
+    } catch (e) {
+        showToast('Error deleting review', 'error');
+    }
+};
+
+function updateReviewsCount() {
+    const count = getMyReviews().length;
+    const textEl = document.getElementById('reviews-count-text');
+    if (textEl) {
+        textEl.textContent = `${count} review${count !== 1 ? 's' : ''}`;
+    }
+}
+
+        // Real-time Order Listener with Enhanced Notifications
+        function setupOrderListener(email) {
+            // Unsubscribe from previous listener if exists
+            if (orderListenerUnsubscribe) {
+                orderListenerUnsubscribe();
+            }
+            
+            const q = query(
+                collection(db, "orders"), 
+                where("customerEmail", "==", email), 
+                orderBy("createdAt", "desc")
+            );
+            
+            orderListenerUnsubscribe = onSnapshot(q, (snap) => {
+                const newOrders = [];
+                const previousOrders = [...myOrders];
+                
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    newOrders.push({ id: doc.id, data });
+                    
+                    // Check for status changes
+                    const existing = previousOrders.find(o => o.id === doc.id);
+                    if (existing && existing.data.status !== data.status) {
+                        handleStatusChange(data);
+                    }
+                });
+                
+                myOrders = newOrders;
+                renderOrders();
+            });
+        }
+
+        function handleStatusChange(orderData) {
+            const statusMessages = {
+                'Pending': null,
+                'Approved': { 
+                    title: 'Order Approved! 🍳', 
+                    message: 'Your order is being prepared.',
+                    sound: true
+                },
+                'Dispatched': { 
+                    title: 'On the Way! 🚚', 
+                    message: `Your food is being delivered to ${orderData.deliveryPoint?.name}`,
+                    sound: true
+                },
+                'Delivered': { 
+                    title: 'Delivered! 🎉', 
+                    message: 'Your order has been delivered. Enjoy!',
+                    sound: true
+                },
+                'Cancelled': { 
+                    title: 'Order Cancelled', 
+                    message: orderData.cancellationReason || 'Contact support for help.',
+                    type: 'error',
+                    sound: true
+                }
+            };
+            
+            const notification = statusMessages[orderData.status];
+            if (notification) {
+                showToast(`${notification.title} ${notification.message}`, notification.type || 'success', 6000);
+                
+                if (notification.sound) {
+                    try {
+                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                        audio.play().catch(() => {});
+                    } catch(e) {}
+                }
+            }
+        }
+
+        // Delivery Points Listener
+        function setupDeliveryPointsListener() {
+            onSnapshot(collection(db, "deliveryPoints"), (snap) => {
+                deliveryPoints = [];
+                snap.forEach(doc => {
+                    deliveryPoints.push({ id: doc.id, ...doc.data() });
+                });
+                if (document.getElementById('confirm-modal').classList.contains('active')) {
+                    renderDeliveryPoints();
+                }
+            });
+        }
+
+        // User Profile
+        async function loadUserProfile(email) {
+            const userDoc = await getDoc(doc(db, "users", email));
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                userPhone = data.phone || '';
+                updateProfileDisplay();
+            }
+        }
+
+        function updateProfileDisplay() {
+    const phoneEl = document.getElementById('profile-phone');
+    if (phoneEl && userPhone) {
+        phoneEl.textContent = '+' + userPhone;
+    }
+    updateReviewsCount();
+}
+        // Get reviews for a specific menu item
+
+
+
+
+window.showFoodReviews = (itemId) => {
+    const item = menuItems.find(i => i.id === itemId);
+    const reviews = getItemReviews(itemId);
+    
+    document.getElementById('food-reviews-title').textContent = `Reviews: ${item?.name || 'Item'}`;
+    
+    if (reviews.length === 0) {
+        document.getElementById('food-reviews-summary').innerHTML = '';
+        document.getElementById('food-reviews-list').innerHTML = `
+            <div class="text-center py-8">
+                <svg class="w-16 h-16 mx-auto text-gray-200 mb-4"><use href="#icon-message"/></svg>
+                <p class="text-gray-400">No reviews yet for this item</p>
+                <p class="text-sm text-gray-300 mt-2">Be the first to order and review!</p>
+            </div>
+        `;
+    } else {
+        const avgRating = (reviews.reduce((sum, r) => sum + r.data.rating.stars, 0) / reviews.length).toFixed(1);
+        
+        // Rating summary with breakdown
+        document.getElementById('food-reviews-summary').innerHTML = `
+            <div class="flex items-center gap-4 p-4 bg-orange-50 rounded-2xl">
+                <div class="text-center">
+                    <p class="text-3xl font-black text-orange-600">${avgRating}</p>
+                    <div class="flex justify-center">
+                        ${Array(5).fill(0).map((_, i) => `
+                            <svg class="w-4 h-4 ${i < Math.round(avgRating) ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor"><use href="#icon-star"/></svg>
+                        `).join('')}
+                    </div>
+                    <p class="text-xs text-orange-600 mt-1">${reviews.length} review${reviews.length !== 1 ? 's' : ''}</p>
+                </div>
+                <div class="flex-1 space-y-1">
+                    ${[5,4,3,2,1].map(star => {
+                        const count = reviews.filter(r => r.data.rating.stars === star).length;
+                        const pct = (count / reviews.length) * 100;
+                        return `
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500 w-3">${star}</span>
+                                <svg class="w-3 h-3 text-yellow-400" fill="currentColor"><use href="#icon-star"/></svg>
+                                <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-yellow-400 rounded-full" style="width: ${pct}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400 w-6">${count}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+        
+        // Reviews list
+        document.getElementById('food-reviews-list').innerHTML = reviews.map(r => `
+            <div class="p-4 bg-gray-50 rounded-xl">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-bold text-orange-600">${r.data.customerName?.[0] || 'U'}</span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-gray-800">${r.data.customerName || 'User'}</p>
+                            <p class="text-xs text-gray-400">${r.data.createdAt?.toDate().toLocaleDateString() || 'Unknown date'}</p>
+                        </div>
+                    </div>
+                    <div class="flex">
+                        ${Array(5).fill(0).map((_, i) => `
+                            <svg class="w-4 h-4 ${i < r.data.rating.stars ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor"><use href="#icon-star"/></svg>
+                        `).join('')}
+                    </div>
+                </div>
+                ${r.data.rating.comment ? `<p class="text-sm text-gray-600">"${r.data.rating.comment}"</p>` : ''}
+            </div>
+        `).join('');
+    }
+    
+    document.getElementById('food-reviews-modal-overlay').classList.add('active');
+    document.getElementById('food-reviews-modal').classList.add('active');
+};
+
+window.closeFoodReviewsModal = () => {
+    document.getElementById('food-reviews-modal-overlay').classList.remove('active');
+    document.getElementById('food-reviews-modal').classList.remove('active');
+};
+
+        // Menu Listener
+        onSnapshot(query(collection(db, "menu"), orderBy("createdAt", "desc")), (snap) => {
+            menuItems = [];
+            snap.forEach(doc => menuItems.push({ id: doc.id, ...doc.data() }));
+
+            // Remove any cart items that have since gone unavailable
+            const beforeCount = cart.length;
+            cart = cart.filter(c => {
+                const menuItem = menuItems.find(m => m.id === c.id);
+                return menuItem && menuItem.active !== false;
+            });
+            if (cart.length !== beforeCount) {
+                localStorage.setItem('canteen_cart', JSON.stringify(cart));
+                updateCartBadges();
+                showToast('Some cart items became unavailable and were removed', 'info');
+            }
+
+            const activeCategory = document.querySelector('.category-btn.bg-orange-500')?.dataset.category || 'all';
+            renderMenu(activeCategory);
+        });
+
+        // Navigation
+        window.showSection = (id) => {
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`section-${id}`).classList.remove('hidden');
+            
+            // Desktop Nav
+            document.querySelectorAll('.nav-link').forEach(l => {
+                l.classList.remove('text-orange-600', 'bg-orange-50', 'font-semibold');
+                l.classList.add('text-gray-600');
+            });
+            const navEl = document.getElementById(`nav-${id}`);
+            if (navEl) {
+                navEl.classList.add('text-orange-600', 'bg-orange-50', 'font-semibold');
+                navEl.classList.remove('text-gray-600');
+            }
+            
+            // Mobile Nav
+            document.querySelectorAll('.mobile-nav-link').forEach(l => {
+                l.classList.remove('text-orange-500');
+                l.classList.add('text-gray-400');
+            });
+            const mobEl = document.getElementById(`m-nav-${id}`);
+            if (mobEl) {
+                mobEl.classList.remove('text-gray-400');
+                mobEl.classList.add('text-orange-500');
+            }
+
+            if (id === 'cart') renderCart();
+            if (id === 'orders') renderOrders();
+        };
+
+        // Auth
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userEmail = user.email;
+                userName = user.email.split('@')[0];
+                document.getElementById('welcome-text').innerText = `Hi, ${userName}!`;
+                document.getElementById('profile-email').innerText = user.email;
+                document.getElementById('user-initial').innerText = userName.charAt(0).toUpperCase();
+                
+                loadUserProfile(user.email);
+                setupOrderListener(user.email);
+                setupDeliveryPointsListener();
+                updateCartBadges();
+                renderCart();
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        window.logout = () => {
+            if (orderListenerUnsubscribe) {
+                orderListenerUnsubscribe();
+            }
+            localStorage.removeItem('canteen_cart');
+            signOut(auth).then(() => window.location.href = "login.html");
+        };
+
+        // Import arrayUnion for status history
+        import { arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    </script>
+    <!-- Food Reviews Modal -->
+    <div class="modal-overlay" id="food-reviews-modal-overlay" onclick="closeFoodReviewsModal()"></div>
+    <div class="modal-content bg-white rounded-3xl shadow-2xl" id="food-reviews-modal">
+        <div class="p-6 md:p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-2xl font-black text-gray-800" id="food-reviews-title">Item Reviews</h3>
+                    <p class="text-sm text-gray-500 mt-1">See what others are saying</p>
+                </div>
+                <button onclick="closeFoodReviewsModal()" class="p-2 hover:bg-gray-100 rounded-full transition">
+                    <svg class="w-6 h-6 text-gray-400"><use href="#icon-x"/></svg>
+                </button>
+            </div>
+            
+            <!-- Rating Summary -->
+            <div id="food-reviews-summary" class="mb-6">
+                <!-- Populated dynamically -->
+            </div>
+            
+            <div id="food-reviews-list" class="space-y-4 max-h-96 overflow-y-auto">
+                <!-- Reviews populated here -->
+            </div>
+        </div>
+    </div>
+    <!-- My Reviews Modal -->
+<div class="modal-overlay" id="my-reviews-modal-overlay" onclick="closeMyReviewsModal()"></div>
+<div class="modal-content bg-white rounded-3xl shadow-2xl" id="my-reviews-modal">
+    <div class="p-6 md:p-8">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h3 class="text-2xl font-black text-gray-800">My Reviews</h3>
+                <p class="text-sm text-gray-500 mt-1">Reviews you've submitted</p>
+            </div>
+            <button onclick="closeMyReviewsModal()" class="p-2 hover:bg-gray-100 rounded-full transition">
+                <svg class="w-6 h-6 text-gray-400"><use href="#icon-x"/></svg>
+            </button>
+        </div>
+        <div id="my-reviews-list" class="space-y-4 max-h-96 overflow-y-auto">
+            <!-- Reviews populated here -->
+        </div>
+    </div>
+</div>
+<!-- Food Reviews Modal -->
+<div class="modal-overlay" id="food-reviews-modal-overlay" onclick="closeFoodReviewsModal()"></div>
+<div class="modal-content bg-white rounded-3xl shadow-2xl" id="food-reviews-modal">
+    <div class="p-6 md:p-8">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h3 class="text-2xl font-black text-gray-800" id="food-reviews-title">Item Reviews</h3>
+                <p class="text-sm text-gray-500 mt-1">See what others are saying</p>
+            </div>
+            <button onclick="closeFoodReviewsModal()" class="p-2 hover:bg-gray-100 rounded-full transition">
+                <svg class="w-6 h-6 text-gray-400"><use href="#icon-x"/></svg>
+            </button>
+        </div>
+        
+        <!-- Rating Summary -->
+        <div id="food-reviews-summary" class="mb-6">
+            <!-- Populated dynamically -->
+        </div>
+        
+        <div id="food-reviews-list" class="space-y-4 max-h-96 overflow-y-auto">
+            <!-- Reviews populated here -->
+        </div>
+    </div>
+</div>
+</body>
+</html>

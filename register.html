@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen System - Sign Up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+        <div class="flex justify-center mb-6">
+            <svg class="w-16 h-16 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+            </svg>
+        </div>
+        
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-8">Create an Account</h2>
+
+        <form id="register-form" class="space-y-5">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                <input type="email" id="email" required class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition" placeholder="you@neighborhood.com">
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <div class="relative mt-1">
+                    <input type="password" id="password" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition pr-10" placeholder="Min. 6 characters">
+                    <button type="button" id="toggle-password" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-orange-500 focus:outline-none">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                <div class="relative mt-1">
+                    <input type="password" id="confirm-password" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition pr-10" placeholder="Re-enter password">
+                    <button type="button" id="toggle-confirm-password" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-orange-500 focus:outline-none">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="w-full bg-orange-500 text-white font-bold py-3 rounded-lg hover:bg-orange-600 transition duration-300 shadow-md">
+                Sign Up
+            </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-gray-600">
+            Already have an account? <a href="login.html" class="text-orange-500 hover:text-orange-700 font-semibold">Log in here</a>
+        </p>
+
+        <p id="error-message" class="mt-4 text-center text-sm text-red-500 hidden"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        // Import Firestore modules
+        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Your Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpwR1fxkEMTkpcVIQtkzcu91Ce-VJ2pYs",
+            authDomain: "mark-kenya.firebaseapp.com",
+            projectId: "mark-kenya",
+            storageBucket: "mark-kenya.firebasestorage.app",
+            messagingSenderId: "205623271753",
+            appId: "1:205623271753:web:8b3e8f46bfc0784f577a98"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        // Initialize Firestore
+        const db = getFirestore(app);
+
+        // DOM Elements
+        const registerForm = document.getElementById('register-form');
+        const errorMessage = document.getElementById('error-message');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Password Visibility Toggles
+        const togglePasswordBtn = document.getElementById('toggle-password');
+        const passwordInput = document.getElementById('password');
+        const toggleConfirmPasswordBtn = document.getElementById('toggle-confirm-password');
+        const confirmPasswordInput = document.getElementById('confirm-password');
+
+        function toggleVisibility(inputElement) {
+            const type = inputElement.getAttribute('type') === 'password' ? 'text' : 'password';
+            inputElement.setAttribute('type', type);
+        }
+
+        togglePasswordBtn.addEventListener('click', () => toggleVisibility(passwordInput));
+        toggleConfirmPasswordBtn.addEventListener('click', () => toggleVisibility(confirmPasswordInput));
+
+        // Form Submission
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            
+            // Client-side Validation
+            if (password !== confirmPassword) {
+                errorMessage.textContent = "Passwords do not match.";
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (password.length < 6) {
+                errorMessage.textContent = "Password must be at least 6 characters.";
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // Visual feedback
+            submitBtn.textContent = 'Creating Account...';
+            submitBtn.disabled = true;
+            errorMessage.classList.add('hidden');
+
+            try {
+                // 1. Create User in Firebase Auth
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                // 2. Store additional user data in Firestore
+                // This creates a document in the "users" collection with the ID matching the Auth UID
+                await setDoc(doc(db, "users", user.uid), {
+                    email: user.email,
+                    role: "customer", // Setting a default role for the dashboard routing later
+                    createdAt: serverTimestamp(),
+                    status: "active"
+                });
+
+                console.log("User registered & saved to Firestore:", user.uid);
+                
+                // Redirect to login
+                window.location.href = "login.html"; 
+
+            } catch (error) {
+                // Handle Errors
+                console.error(error.code, error.message);
+                
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMessage.textContent = "This email is already registered.";
+                } else {
+                    errorMessage.textContent = error.message;
+                }
+                
+                errorMessage.classList.remove('hidden');
+                
+                // Reset button
+                submitBtn.textContent = 'Sign Up';
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
