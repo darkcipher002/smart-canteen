@@ -1,11 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=dashboard.html">
-    <title>Redirecting...</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+      position: relative;
+    }
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(255,0,0,0.03) 2px,
+          rgba(255,0,0,0.03) 4px
+        );
+      pointer-events: none;
+      animation: flicker 4s infinite;
+    }
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      92% { opacity: 1; }
+      93% { opacity: 0.7; }
+      94% { opacity: 1; }
+      96% { opacity: 0.85; }
+      97% { opacity: 1; }
+    }
+    .wrap {
+      text-align: center;
+      max-width: 480px;
+      position: relative;
+      z-index: 1;
+    }
+    .code {
+      font-size: clamp(6rem, 22vw, 10rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.06em;
+      color: #450a0a;
+      text-shadow:
+        0 0 40px rgba(220, 38, 38, 0.35),
+        2px 2px 0 #7f1d1d;
+      user-select: none;
+    }
+    .glitch {
+      position: relative;
+      display: inline-block;
+    }
+    h1 {
+      margin-top: 8px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fca5a5;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    p {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      color: #737373;
+      line-height: 1.65;
+    }
+    .paths {
+      margin-top: 28px;
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.75rem;
+      color: #525252;
+      text-align: left;
+      background: #171717;
+      border: 1px solid #262626;
+      border-radius: 8px;
+      padding: 14px 16px;
+      line-height: 1.8;
+    }
+    .paths span { color: #dc2626; }
+    .btn {
+      display: inline-block;
+      margin-top: 28px;
+      padding: 12px 28px;
+      background: transparent;
+      border: 1px solid #404040;
+      color: #a3a3a3;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: 0.15s;
+      letter-spacing: 0.03em;
+    }
+    .btn:hover {
+      border-color: #737373;
+      color: #f5f5f5;
+      background: #171717;
+    }
+    .noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      z-index: 0;
+    }
+    footer {
+      position: fixed;
+      bottom: 20px;
+      font-size: 0.7rem;
+      color: #404040;
+      z-index: 1;
+    }
+  </style>
 </head>
 <body>
-    <p>If you are not redirected automatically, <a href="dashboard.html">click here</a>.</p>
+  <div class="noise"></div>
+  <div class="wrap">
+    <div class="code glitch">404</div>
+    <h1>Page not found</h1>
+    <p>
+      The resource you requested does not exist on this server,
+      has been permanently removed, or you do not have permission to view it.
+    </p>
+    <div class="paths">
+      <div>GET /register &nbsp;&nbsp;<span>→ 404 Not Found</span></div>
+      <div>Error: ENOENT — no such route</div>
+      <div>Request blocked · reference <span>#0x7F4A2</span></div>
+    </div>
+    <!-- <a class="btn" href="/login">Return</a> -->
+  </div>
+  <footer>HTTP 404 · Access denied</footer>
+  <script>
+    // Frustrate casual inspection a bit
+    document.addEventListener("contextmenu", e => e.preventDefault());
+    console.clear();
+    console.log("%cStop.", "color:#dc2626;font-size:48px;font-weight:bold;");
+    console.log("%cThis page does not exist.", "color:#737373;font-size:14px;");
+  </script>
 </body>
 </html>
